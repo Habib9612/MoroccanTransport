@@ -2,17 +2,49 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { setupWebSocket } from "./websocket";
+import { setupSecurity } from "./middleware/security";
 import { db } from "@db";
 import { loads, users, loadUpdates } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
-import { LoadMatcher } from "./ml/load_matching";
-import { DynamicPricing } from "./ml/pricing";
+import { loadMatcher, dynamicPricing } from "./ml";
+import * as OpenApiValidator from 'express-openapi-validator';
+import YAML from 'yamljs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import swaggerUi from 'swagger-ui-express';
 
-const loadMatcher = new LoadMatcher();
-const pricingEngine = new DynamicPricing();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export function registerRoutes(app: Express): Server {
+  // Setup security middleware
+  setupSecurity(app);
+
+  // Setup authentication
   setupAuth(app);
+
+  // Setup OpenAPI validation and documentation
+  const openApiDocument = YAML.load(join(__dirname, 'openapi.yaml'));
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
+
+  app.use(
+    OpenApiValidator.middleware({
+      apiSpec: openApiDocument,
+      validateRequests: true,
+      validateResponses: true,
+    }),
+  );
+
+  // Error handler for OpenAPI validation
+  app.use((err: any, req: any, res: any, next: any) => {
+    if (err.status === 400) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        details: err.errors,
+      });
+    }
+    next(err);
+  });
 
   // Profile update endpoint
   app.put("/api/profile", async (req, res) => {
@@ -122,7 +154,7 @@ export function registerRoutes(app: Express): Server {
         .from(users)
         .where(eq(users.userType, "carrier"));
 
-      const recommendations = loadMatcher.find_matches(load, carriers);
+      const recommendations = await loadMatcher.findMatches(load, carriers);
       res.json(recommendations);
     } catch (error) {
       res.status(400).json({ error: "Failed to get recommendations" });
@@ -143,7 +175,7 @@ export function registerRoutes(app: Express): Server {
         .where(eq(loads.status, "completed"))
         .limit(1000);
 
-      const suggestion = pricingEngine.suggest_price(req.body, historicalLoads);
+      const suggestion = await dynamicPricing.suggestPrice(req.body, historicalLoads);
       res.json(suggestion);
     } catch (error) {
       res.status(400).json({ error: "Failed to generate price suggestion" });

@@ -2,6 +2,17 @@ import { spawn } from 'child_process';
 import { join } from 'path';
 
 class PythonMLService {
+  private static instance: PythonMLService;
+
+  private constructor() {}
+
+  public static getInstance(): PythonMLService {
+    if (!PythonMLService.instance) {
+      PythonMLService.instance = new PythonMLService();
+    }
+    return PythonMLService.instance;
+  }
+
   private async callPythonScript(scriptName: string, data: any): Promise<any> {
     return new Promise((resolve, reject) => {
       const process = spawn('python3', [
@@ -43,7 +54,5 @@ class PythonMLService {
   }
 }
 
-const loadMatcher = new PythonMLService();
-const dynamicPricing = new PythonMLService();
-
-export { loadMatcher as LoadMatcher, dynamicPricing as DynamicPricing };
+export const loadMatcher = PythonMLService.getInstance();
+export const dynamicPricing = PythonMLService.getInstance();
