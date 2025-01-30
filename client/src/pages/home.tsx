@@ -56,7 +56,8 @@ export default function Home() {
               <p className="font-semibold">- Fatima Benali, Supply Chain Director</p>
             </div>
           </div>
-        </section>
-      </div>
-    );
+        </div>
+      </section>
+    </div>
+  );
 }
