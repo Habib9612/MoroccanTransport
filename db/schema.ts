@@ -13,6 +13,12 @@ export const users = pgTable("users", {
   city: text("city"),
   preferredLanguage: text("preferred_language").default('fr').notNull(),
   notificationPreferences: text("notification_preferences").default('email').notNull(),
+  // Carrier specific fields
+  verificationStatus: text("verification_status").default('pending'), // pending, verified, rejected
+  fleetSize: integer("fleet_size"),
+  equipmentTypes: text("equipment_types"), // JSON string of available equipment
+  operatingRegions: text("operating_regions"), // JSON string of regions
+  insuranceInfo: text("insurance_info"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
@@ -29,11 +35,43 @@ export const loads = pgTable("loads", {
   destinationLng: doublePrecision("destination_lng").notNull(),
   weight: integer("weight").notNull(),
   price: integer("price").notNull(),
-  status: text("status").notNull().default('available'), // available, booked, in_transit, delivered
+  status: text("status").notNull().default('available'), // available, booked, in_transit, delivered, completed
   description: text("description"),
   equipmentType: text("equipment_type"),
   pickupDate: timestamp("pickup_date").notNull(),
   deliveryDate: timestamp("delivery_date").notNull(),
+  // Tracking and payment fields
+  currentLat: doublePrecision("current_lat"),
+  currentLng: doublePrecision("current_lng"),
+  lastLocationUpdate: timestamp("last_location_update"),
+  estimatedArrival: timestamp("estimated_arrival"),
+  paymentStatus: text("payment_status").default('pending'), // pending, paid, overdue
+  invoiceId: text("invoice_id"),
+  totalAmount: integer("total_amount"),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+// New table for tracking updates
+export const loadUpdates = pgTable("load_updates", {
+  id: serial("id").primaryKey(),
+  loadId: integer("load_id").notNull(),
+  status: text("status").notNull(),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
+  message: text("message"),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+// New table for invoices
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  loadId: integer("load_id").notNull(),
+  shipperId: integer("shipper_id").notNull(),
+  carrierId: integer("carrier_id").notNull(),
+  amount: integer("amount").notNull(),
+  status: text("status").default('pending').notNull(), // pending, paid, overdue
+  dueDate: timestamp("due_date").notNull(),
+  paidAt: timestamp("paid_at"),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
@@ -41,8 +79,16 @@ export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 export const insertLoadSchema = createInsertSchema(loads);
 export const selectLoadSchema = createSelectSchema(loads);
+export const insertLoadUpdateSchema = createInsertSchema(loadUpdates);
+export const selectLoadUpdateSchema = createSelectSchema(loadUpdates);
+export const insertInvoiceSchema = createInsertSchema(invoices);
+export const selectInvoiceSchema = createSelectSchema(invoices);
 
 export type InsertUser = typeof users.$inferInsert;
 export type SelectUser = typeof users.$inferSelect;
 export type InsertLoad = typeof loads.$inferInsert;
 export type SelectLoad = typeof loads.$inferSelect;
+export type InsertLoadUpdate = typeof loadUpdates.$inferInsert;
+export type SelectLoadUpdate = typeof loadUpdates.$inferSelect;
+export type InsertInvoice = typeof invoices.$inferInsert;
+export type SelectInvoice = typeof invoices.$inferSelect;

@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { SelectLoad } from "@db/schema";
+import { useTracking } from "@/hooks/use-tracking";
 
 interface MapViewProps {
   loads: SelectLoad[];
@@ -12,9 +13,22 @@ declare global {
   }
 }
 
+interface MarkerMap {
+  [key: number]: google.maps.Marker;
+}
+
 export default function MapView({ loads }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
+  const markersRef = useRef<MarkerMap>({});
+  const [trackingUpdates, setTrackingUpdates] = useState<{[key: number]: {lat: number, lng: number}}>({});
+
+  const { sendUpdate } = useTracking((update) => {
+    setTrackingUpdates(prev => ({
+      ...prev,
+      [update.loadId]: { lat: update.latitude, lng: update.longitude }
+    }));
+  });
 
   useEffect(() => {
     // Load Google Maps API
@@ -27,7 +41,7 @@ export default function MapView({ loads }: MapViewProps) {
       if (mapRef.current) {
         // Center map on Morocco
         const moroccoCenter = { lat: 31.7917, lng: -7.0926 };
-        
+
         googleMapRef.current = new window.google.maps.Map(mapRef.current, {
           center: moroccoCenter,
           zoom: 6,
@@ -42,17 +56,13 @@ export default function MapView({ loads }: MapViewProps) {
 
         // Add markers for each load
         loads.forEach((load) => {
-          new window.google.maps.Marker({
+          const marker = new window.google.maps.Marker({
             position: { lat: load.originLat, lng: load.originLng },
             map: googleMapRef.current,
-            title: `Pickup: ${load.origin}`,
+            title: `Load ${load.id}`,
           });
 
-          new window.google.maps.Marker({
-            position: { lat: load.destinationLat, lng: load.destinationLng },
-            map: googleMapRef.current,
-            title: `Delivery: ${load.destination}`,
-          });
+          markersRef.current[load.id] = marker;
 
           // Draw route line
           const route = new window.google.maps.Polyline({
@@ -75,6 +85,16 @@ export default function MapView({ loads }: MapViewProps) {
       document.head.removeChild(script);
     };
   }, [loads]);
+
+  // Update marker positions when tracking updates are received
+  useEffect(() => {
+    Object.entries(trackingUpdates).forEach(([loadId, position]) => {
+      const marker = markersRef.current[Number(loadId)];
+      if (marker) {
+        marker.setPosition(position);
+      }
+    });
+  }, [trackingUpdates]);
 
   return (
     <Card className="w-full h-[400px] overflow-hidden">
