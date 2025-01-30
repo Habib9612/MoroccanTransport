@@ -14,6 +14,7 @@ import { Loader2 } from "lucide-react";
 function Router() {
   const { user, isLoading } = useUser();
 
+  // Show loading spinner while checking auth state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -22,10 +23,16 @@ function Router() {
     );
   }
 
+  // Show login/register page if not authenticated
   if (!user) {
-    return <AuthPage />;
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <AuthPage />
+      </div>
+    );
   }
 
+  // Show main app if authenticated
   return (
     <>
       <Navbar />

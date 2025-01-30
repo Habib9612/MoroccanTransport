@@ -21,7 +21,7 @@ export function registerRoutes(app: Express): Server {
     // Setup security middleware
     setupSecurity(app);
 
-    // Setup authentication
+    // Setup authentication - ensuring this is called before other routes
     setupAuth(app);
 
     // Setup OpenAPI validation and documentation
@@ -35,18 +35,6 @@ export function registerRoutes(app: Express): Server {
         validateResponses: true,
       }),
     );
-
-    // Error handler for OpenAPI validation
-    app.use((err: any, req: any, res: any, next: any) => {
-      // Handle validation errors
-      if (err.status === 400 || err.status === 401) {
-        return res.status(err.status).json({
-          error: err.status === 400 ? 'Validation Error' : 'Authentication Error',
-          details: err.errors,
-        });
-      }
-      next(err);
-    });
 
     // Get load tracking updates
     app.get("/api/loads/:id/tracking", async (req, res) => {
@@ -159,6 +147,18 @@ export function registerRoutes(app: Express): Server {
         console.error('Error generating price suggestion:', error);
         res.status(400).json({ error: "Failed to generate price suggestion" });
       }
+    });
+
+    // Error handler for OpenAPI validation
+    app.use((err: any, req: any, res: any, next: any) => {
+      // Handle validation errors
+      if (err.status === 400 || err.status === 401) {
+        return res.status(err.status).json({
+          error: err.status === 400 ? 'Validation Error' : 'Authentication Error',
+          details: err.errors,
+        });
+      }
+      next(err);
     });
 
     // Setup HTTP server and WebSocket
