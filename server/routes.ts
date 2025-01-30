@@ -2,11 +2,33 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
-import { loads } from "@db/schema";
+import { loads, users } from "@db/schema";
 import { eq } from "drizzle-orm";
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
+
+  // Profile update endpoint
+  app.put("/api/profile", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    try {
+      const [updatedUser] = await db
+        .update(users)
+        .set({
+          ...req.body,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, req.user!.id))
+        .returning();
+
+      res.json(updatedUser);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update profile" });
+    }
+  });
 
   // Get available loads
   app.get("/api/loads", async (req, res) => {
@@ -38,7 +60,7 @@ export function registerRoutes(app: Express): Server {
     }
 
     const loadId = parseInt(req.params.id);
-    
+
     try {
       const [updatedLoad] = await db
         .update(loads)
@@ -48,7 +70,7 @@ export function registerRoutes(app: Express): Server {
         })
         .where(eq(loads.id, loadId))
         .returning();
-      
+
       res.json(updatedLoad);
     } catch (error) {
       res.status(400).json({ error: "Booking failed" });

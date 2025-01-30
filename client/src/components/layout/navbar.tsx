@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, Truck, Package } from "lucide-react";
+import { User, LogOut, Truck, Package, Settings } from "lucide-react";
 
 export default function Navbar() {
   const { user, logout } = useUser();
@@ -37,6 +37,12 @@ export default function Navbar() {
                 <User className="h-4 w-4" />
                 <span>{user?.username}</span>
               </DropdownMenuItem>
+              <Link href="/profile">
+                <DropdownMenuItem className="gap-2">
+                  <Settings className="h-4 w-4" />
+                  <span>Profile Settings</span>
+                </DropdownMenuItem>
+              </Link>
               <DropdownMenuItem className="gap-2">
                 {user?.userType === "carrier" ? (
                   <Truck className="h-4 w-4" />

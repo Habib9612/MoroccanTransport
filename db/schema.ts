@@ -9,8 +9,12 @@ export const users = pgTable("users", {
   companyName: text("company_name"),
   phone: text("phone"),
   email: text("email"),
+  address: text("address"),
+  city: text("city"),
   preferredLanguage: text("preferred_language").default('fr').notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull()
+  notificationPreferences: text("notification_preferences").default('email').notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
 export const loads = pgTable("loads", {
