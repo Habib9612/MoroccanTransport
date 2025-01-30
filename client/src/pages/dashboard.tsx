@@ -11,6 +11,7 @@ import { useForm } from "react-hook-form";
 import { SelectLoad } from "@db/schema";
 import { PriceSuggestion } from "@/components/price-suggestion";
 import { CarrierRecommendations } from "@/components/carrier-recommendations";
+import { LoadTracker } from "@/components/load-tracker";
 
 interface LoadFormData {
   origin: string;
@@ -79,7 +80,6 @@ export default function Dashboard() {
 
   const createLoad = useMutation({
     mutationFn: async (data: LoadFormData) => {
-      // Convert string values to numbers where needed
       const formattedData = {
         ...data,
         weight: parseInt(data.weight),
@@ -271,8 +271,6 @@ export default function Dashboard() {
                         </FormItem>
                       )}
                     />
-
-
                   </div>
 
                   {form.watch("origin") && form.watch("destination") && form.watch("weight") && form.watch("equipmentType") && form.watch("pickupDate") && (
@@ -307,11 +305,13 @@ export default function Dashboard() {
               onBook={() => bookLoad.mutate(load.id)}
               showBookButton={user?.userType === "carrier"}
             />
+
+            {load.status === "in_transit" && <LoadTracker load={load} />}
+
             {user?.userType === "shipper" && load.status === "available" && (
               <CarrierRecommendations
                 load={load}
                 onSelect={(carrierId) => {
-                  // Handle carrier selection
                   console.log("Selected carrier:", carrierId);
                 }}
               />
