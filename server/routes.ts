@@ -38,35 +38,14 @@ export function registerRoutes(app: Express): Server {
 
     // Error handler for OpenAPI validation
     app.use((err: any, req: any, res: any, next: any) => {
-      if (err.status === 400) {
-        return res.status(400).json({
-          error: 'Validation Error',
+      // Handle validation errors
+      if (err.status === 400 || err.status === 401) {
+        return res.status(err.status).json({
+          error: err.status === 400 ? 'Validation Error' : 'Authentication Error',
           details: err.errors,
         });
       }
       next(err);
-    });
-
-    // Profile update endpoint
-    app.put("/api/profile", async (req, res) => {
-      if (!req.isAuthenticated()) {
-        return res.status(401).send("Not authenticated");
-      }
-
-      try {
-        const [updatedUser] = await db
-          .update(users)
-          .set({
-            ...req.body,
-            updatedAt: new Date(),
-          })
-          .where(eq(users.id, req.user!.id))
-          .returning();
-
-        res.json(updatedUser);
-      } catch (error) {
-        res.status(400).json({ error: "Failed to update profile" });
-      }
     });
 
     // Get load tracking updates
@@ -81,14 +60,20 @@ export function registerRoutes(app: Express): Server {
           .limit(50);
         res.json(updates);
       } catch (error) {
+        console.error('Error fetching tracking updates:', error);
         res.status(400).json({ error: "Failed to fetch tracking updates" });
       }
     });
 
     // Get available loads
     app.get("/api/loads", async (req, res) => {
-      const allLoads = await db.select().from(loads).where(eq(loads.status, "available"));
-      res.json(allLoads);
+      try {
+        const allLoads = await db.select().from(loads);
+        res.json(allLoads);
+      } catch (error) {
+        console.error('Error fetching loads:', error);
+        res.status(400).json({ error: "Failed to fetch loads" });
+      }
     });
 
     // Create new load
@@ -104,6 +89,7 @@ export function registerRoutes(app: Express): Server {
         }).returning();
         res.json(newLoad);
       } catch (error) {
+        console.error('Error creating load:', error);
         res.status(400).json({ error: "Invalid load data" });
       }
     });
@@ -115,7 +101,6 @@ export function registerRoutes(app: Express): Server {
       }
 
       const loadId = parseInt(req.params.id);
-
       try {
         const [updatedLoad] = await db
           .update(loads)
@@ -128,26 +113,22 @@ export function registerRoutes(app: Express): Server {
 
         res.json(updatedLoad);
       } catch (error) {
+        console.error('Error booking load:', error);
         res.status(400).json({ error: "Booking failed" });
       }
     });
 
-    // Get carrier recommendations for a load
+    // Get carrier recommendations
     app.get("/api/loads/:id/recommendations", async (req, res) => {
-      if (!req.isAuthenticated()) {
-        return res.status(401).send("Not authenticated");
-      }
-
-      const loadId = parseInt(req.params.id);
       try {
         const [load] = await db
           .select()
           .from(loads)
-          .where(eq(loads.id, loadId))
+          .where(eq(loads.id, parseInt(req.params.id)))
           .limit(1);
 
         if (!load) {
-          return res.status(404).send("Load not found");
+          return res.status(404).json({ error: "Load not found" });
         }
 
         const carriers = await db
@@ -158,31 +139,29 @@ export function registerRoutes(app: Express): Server {
         const recommendations = await loadMatcher.findMatches(load, carriers);
         res.json(recommendations);
       } catch (error) {
+        console.error('Error getting recommendations:', error);
         res.status(400).json({ error: "Failed to get recommendations" });
       }
     });
 
-    // Get price suggestion for a new load
+    // Get price suggestion
     app.post("/api/loads/price-suggestion", async (req, res) => {
-      if (!req.isAuthenticated()) {
-        return res.status(401).send("Not authenticated");
-      }
-
       try {
-        // Get historical loads for price modeling
         const historicalLoads = await db
           .select()
           .from(loads)
           .where(eq(loads.status, "completed"))
-          .limit(1000);
+          .limit(100);
 
         const suggestion = await dynamicPricing.suggestPrice(req.body, historicalLoads);
         res.json(suggestion);
       } catch (error) {
+        console.error('Error generating price suggestion:', error);
         res.status(400).json({ error: "Failed to generate price suggestion" });
       }
     });
 
+    // Setup HTTP server and WebSocket
     const httpServer = createServer(app);
     setupWebSocket(httpServer);
 

@@ -23,16 +23,18 @@ export function setupWebSocket(httpServer: Server) {
   const wss = new WebSocketServer({ 
     server: httpServer,
     verifyClient: (info: VerifyClientInfo) => {
+      // Only ignore vite-hmr protocol, accept all other connections
       return info.req.headers['sec-websocket-protocol'] !== 'vite-hmr';
     }
   });
 
   wss.on('connection', (ws: WebSocket) => {
-    console.log('Client connected');
+    console.log('Client connected to tracking system');
 
     ws.on('message', async (message: string) => {
       try {
         const data: TrackingUpdate = JSON.parse(message);
+        console.log('Received tracking update:', data);
 
         // Update load location
         await db.update(loads)
@@ -40,24 +42,24 @@ export function setupWebSocket(httpServer: Server) {
             currentLat: data.latitude,
             currentLng: data.longitude,
             lastLocationUpdate: new Date(),
+            ...(data.status && { status: data.status })
           })
           .where(eq(loads.id, data.loadId));
 
         // Create tracking update record
-        if (data.status || data.message) {
-          await db.insert(loadUpdates).values({
-            loadId: data.loadId,
-            status: data.status || 'location_update',
-            latitude: data.latitude,
-            longitude: data.longitude,
-            message: data.message,
-          });
-        }
+        await db.insert(loadUpdates).values({
+          loadId: data.loadId,
+          status: data.status || 'location_update',
+          latitude: data.latitude,
+          longitude: data.longitude,
+          message: data.message,
+        });
 
         // Broadcast update to all connected clients
+        const broadcastData = JSON.stringify(data);
         wss.clients.forEach((client) => {
           if (client !== ws && client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(data));
+            client.send(broadcastData);
           }
         });
       } catch (error) {
@@ -70,7 +72,7 @@ export function setupWebSocket(httpServer: Server) {
     });
 
     ws.on('close', () => {
-      console.log('Client disconnected');
+      console.log('Client disconnected from tracking system');
     });
   });
 }
