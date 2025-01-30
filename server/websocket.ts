@@ -1,5 +1,6 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import type { Server } from 'http';
+import type { IncomingMessage } from 'http';
 import { db } from "@db";
 import { loads, loadUpdates } from "@db/schema";
 import { eq } from "drizzle-orm";
@@ -12,8 +13,19 @@ interface TrackingUpdate {
   message?: string;
 }
 
+interface VerifyClientInfo {
+  origin: string;
+  secure: boolean;
+  req: IncomingMessage;
+}
+
 export function setupWebSocket(httpServer: Server) {
-  const wss = new WebSocketServer({ server: httpServer });
+  const wss = new WebSocketServer({ 
+    server: httpServer,
+    verifyClient: (info: VerifyClientInfo) => {
+      return info.req.headers['sec-websocket-protocol'] !== 'vite-hmr';
+    }
+  });
 
   wss.on('connection', (ws: WebSocket) => {
     console.log('Client connected');
@@ -21,7 +33,7 @@ export function setupWebSocket(httpServer: Server) {
     ws.on('message', async (message: string) => {
       try {
         const data: TrackingUpdate = JSON.parse(message);
-        
+
         // Update load location
         await db.update(loads)
           .set({
@@ -51,6 +63,10 @@ export function setupWebSocket(httpServer: Server) {
       } catch (error) {
         console.error('Error processing tracking update:', error);
       }
+    });
+
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
     });
 
     ws.on('close', () => {
