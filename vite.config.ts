@@ -21,6 +21,6 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    allowedHosts: ["7242f997-9443-4e12-8d0b-b9a3df65337c-00-2hzv8wqtjyqji.janeway.replit.dev"],
+    allowedHosts: ["all"],
   },
 });
