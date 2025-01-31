@@ -13,13 +13,6 @@ interface TrackingUpdate {
   message?: string;
 }
 
-interface CarrierLocation {
-  id: number;
-  latitude: number;
-  longitude: number;
-  lastUpdate: Date;
-}
-
 interface VerifyClientInfo {
   origin: string;
   secure: boolean;
@@ -43,16 +36,15 @@ export function setupWebSocket(httpServer: Server) {
     setInterval(async () => {
       try {
         // Query active carriers from users table
-        const activeCarriers = await db
-          .select({
-            id: users.id,
-            currentLat: users.currentLat,
-            currentLng: users.currentLng,
-            name: users.companyName
-          })
-          .from(users)
-          .where(eq(users.userType, 'carrier'))
-          .where(eq(users.status, 'active'));
+        const activeCarriers = await db.select({
+          id: users.id,
+          currentLat: users.currentLat,
+          currentLng: users.currentLng,
+          name: users.companyName
+        })
+        .from(users)
+        .where(eq(users.userType, 'carrier'))
+        .where(eq(users.status, 'active'));
 
         const carrierData = activeCarriers
           .filter(carrier => carrier.currentLat && carrier.currentLng)
@@ -61,6 +53,8 @@ export function setupWebSocket(httpServer: Server) {
             location: [carrier.currentLat, carrier.currentLng],
             name: carrier.name || `Carrier ${carrier.id}`
           }));
+
+        console.log('Broadcasting carrier locations:', carrierData);
 
         const message = JSON.stringify({
           type: 'carrier_locations',

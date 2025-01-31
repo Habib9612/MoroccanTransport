@@ -60,8 +60,11 @@ app.use((req, res, next) => {
     }
 
     const PORT = process.env.PORT || 5000;
-    server.listen(PORT, "0.0.0.0", () => {
+
+    // Fix: Use correct type for hostname and properly bind to all interfaces
+    server.listen(PORT, () => {
       log(`Server running on port ${PORT}`);
+      log(`Application available at http://0.0.0.0:${PORT}`);
       log(`API Documentation available at http://0.0.0.0:${PORT}/api-docs`);
     });
   } catch (error) {

@@ -54,7 +54,7 @@ export function auditLog(req: any, res: any, next: any) {
 }
 
 export function setupSecurity(app: Express) {
-  // Basic security headers
+  // Basic security headers with WebSocket support
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
@@ -62,7 +62,7 @@ export function setupSecurity(app: Express) {
         scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "wss:", "https:"]
+        connectSrc: ["'self'", "ws:", "wss:", "https:"]
       }
     }
   }));
@@ -75,6 +75,18 @@ export function setupSecurity(app: Express) {
 
   // Audit logging
   app.use('/api/', auditLog);
+
+  // CORS setup for development
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-API-Key');
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(200);
+    } else {
+      next();
+    }
+  });
 
   // Generate API key endpoint
   app.post('/api/generate-api-key', (req, res) => {

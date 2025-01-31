@@ -6,6 +6,45 @@ import "leaflet.heat";
 import { Card } from "@/components/ui/card";
 import { SelectLoad } from "@db/schema";
 
+// Custom hook for WebSocket connection
+function useWebSocket(url: string) {
+  const [data, setData] = useState<any>(null);
+  const ws = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const websocket = new WebSocket(`${protocol}//${window.location.host}`);
+
+    websocket.onopen = () => {
+      console.log('WebSocket connection established');
+    };
+
+    websocket.onmessage = (event) => {
+      try {
+        const parsedData = JSON.parse(event.data);
+        console.log('Received WebSocket data:', parsedData);
+        setData(parsedData);
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    };
+
+    websocket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    ws.current = websocket;
+
+    return () => {
+      if (ws.current) {
+        ws.current.close();
+      }
+    };
+  }, [url]);
+
+  return data;
+}
+
 // Initialize leaflet
 delete (Icon.Default.prototype as any)._getIconUrl;
 Icon.Default.mergeOptions({
@@ -23,18 +62,12 @@ interface MapViewProps {
   }>;
 }
 
-declare global {
-  interface Window {
-    L: any;
-  }
-}
-
 // HeatLayer component
 function HeatmapLayer({ points }: { points: number[][] }) {
   const map = useMap();
 
   useEffect(() => {
-    if (!map || !points.length || !window.L) return;
+    if (!map || !points.length || !window.L?.heatLayer) return;
 
     const heat = window.L.heatLayer(points.map(p => ({
       lat: p[0],
@@ -56,27 +89,16 @@ function HeatmapLayer({ points }: { points: number[][] }) {
 }
 
 export default function MapView({ loads, carriers = [] }: MapViewProps) {
-  const [ws, setWs] = useState<WebSocket | null>(null);
+  const wsData = useWebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`);
   const [carrierLocations, setCarrierLocations] = useState(carriers);
   const mapRef = useRef(null);
 
-  // Connect to WebSocket for real-time updates
   useEffect(() => {
-    const websocket = new WebSocket(`ws://${window.location.host}/ws`);
-
-    websocket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'carrier_locations') {
-        setCarrierLocations(data.carriers);
-      }
-    };
-
-    setWs(websocket);
-
-    return () => {
-      websocket.close();
-    };
-  }, []);
+    if (wsData?.type === 'carrier_locations') {
+      console.log('Updating carrier locations:', wsData.carriers);
+      setCarrierLocations(wsData.carriers);
+    }
+  }, [wsData]);
 
   // Calculate map bounds based on all points
   const allPoints = [
