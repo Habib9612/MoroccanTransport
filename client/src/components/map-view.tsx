@@ -5,15 +5,30 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 import { Card } from "@/components/ui/card";
 import { SelectLoad } from "@db/schema";
+import ReconnectingWebSocket from 'reconnecting-websocket';
 
 // Custom hook for WebSocket connection
 function useWebSocket(url: string) {
   const [data, setData] = useState<any>(null);
-  const ws = useRef<WebSocket | null>(null);
+  const ws = useRef<ReconnectingWebSocket | null>(null);
 
   useEffect(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const websocket = new WebSocket(`${protocol}//${window.location.host}`);
+    // Get the current hostname from window.location
+    const hostname = window.location.hostname;
+    // Check if we're running on Replit
+    const isReplit = hostname.includes('.repl');
+    // Construct WebSocket URL based on environment
+    const wsUrl = isReplit 
+      ? `wss://${hostname.replace('00-', '')}/` 
+      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+
+    console.log('Connecting to WebSocket URL:', wsUrl);
+
+    const websocket = new ReconnectingWebSocket(wsUrl, [], {
+      WebSocket: window.WebSocket,
+      connectionTimeout: 4000,
+      maxRetries: 10,
+    });
 
     websocket.onopen = () => {
       console.log('WebSocket connection established');
@@ -62,6 +77,12 @@ interface MapViewProps {
   }>;
 }
 
+declare global {
+  interface Window {
+    L: any;
+  }
+}
+
 // HeatLayer component
 function HeatmapLayer({ points }: { points: number[][] }) {
   const map = useMap();
@@ -69,11 +90,7 @@ function HeatmapLayer({ points }: { points: number[][] }) {
   useEffect(() => {
     if (!map || !points.length || !window.L?.heatLayer) return;
 
-    const heat = window.L.heatLayer(points.map(p => ({
-      lat: p[0],
-      lng: p[1],
-      intensity: 1
-    })), {
+    const heat = window.L.heatLayer(points, {
       radius: 25,
       blur: 15,
       maxZoom: 10,

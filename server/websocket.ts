@@ -23,10 +23,16 @@ export function setupWebSocket(httpServer: Server) {
   try {
     const wss = new WebSocketServer({ 
       server: httpServer,
-      verifyClient: (info: VerifyClientInfo) => {
-        // Only ignore vite-hmr protocol, accept all other connections
-        const protocol = info.req.headers['sec-websocket-protocol'];
-        return protocol !== 'vite-hmr';
+      verifyClient: (info: VerifyClientInfo, callback) => {
+        const origin = info.origin || '';
+        const isReplit = origin.includes('.repl.') || origin.includes('.replit.dev');
+        // Accept connections from localhost (development) and Replit domains
+        if (isReplit || origin.includes('localhost') || origin === '') {
+          callback(true);
+          return;
+        }
+        console.log('Rejected WebSocket connection from origin:', origin);
+        callback(false);
       }
     });
 
