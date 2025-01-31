@@ -47,8 +47,8 @@ export default function ProfilePage() {
       email: user?.email || "",
       address: user?.address || "",
       city: user?.city || "",
-      preferredLanguage: user?.preferredLanguage || "fr",
-      notificationPreferences: user?.notificationPreferences || "email",
+      preferredLanguage: (user?.preferredLanguage as "fr" | "ar" | "en") || "fr",
+      notificationPreferences: (user?.notificationPreferences as "email" | "sms" | "both") || "email",
     },
   });
 
