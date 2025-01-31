@@ -41,34 +41,58 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  try {
-    const server = registerRoutes(app);
+  let retries = 0;
+  const maxRetries = 3;
+  const PORT = process.env.PORT || 3000;
 
-    // Global error handler
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      console.error('Error:', err);
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-      res.status(status).json({ message });
-    });
+  const startServer = async () => {
+    try {
+      const server = registerRoutes(app);
 
-    // Setup static file serving and development middleware
-    if (app.get("env") === "development") {
-      await setupVite(app, server);
-    } else {
-      serveStatic(app);
+      // Global error handler
+      app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+        console.error('Error:', err);
+        const status = err.status || err.statusCode || 500;
+        const message = err.message || "Internal Server Error";
+        res.status(status).json({ message });
+      });
+
+      // Setup static file serving and development middleware
+      if (app.get("env") === "development") {
+        await setupVite(app, server);
+      } else {
+        serveStatic(app);
+      }
+
+      server.listen(PORT, '0.0.0.0', () => {
+        log(`Server running on port ${PORT}`);
+        log(`Application available at http://0.0.0.0:${PORT}`);
+        log(`API Documentation available at http://0.0.0.0:${PORT}/api-docs`);
+      });
+
+      // Handle server errors
+      server.on('error', (error: any) => {
+        if (error.code === 'EADDRINUSE') {
+          console.error(`Port ${PORT} is already in use`);
+          if (retries < maxRetries) {
+            retries++;
+            console.log(`Retrying with different port... (Attempt ${retries}/${maxRetries})`);
+            setTimeout(startServer, 1000);
+          } else {
+            console.error('Max retries reached. Unable to start server.');
+            process.exit(1);
+          }
+        } else {
+          console.error('Server error:', error);
+          process.exit(1);
+        }
+      });
+
+    } catch (error) {
+      console.error('Server startup error:', error);
+      process.exit(1);
     }
+  };
 
-    const PORT = 3000;
-
-    // Fix: Use correct type for hostname and properly bind to all interfaces
-    server.listen(PORT, '0.0.0.0', () => {
-      log(`Server running on port ${PORT}`);
-      log(`Application available at http://0.0.0.0:${PORT}`);
-      log(`API Documentation available at http://0.0.0.0:${PORT}/api-docs`);
-    });
-  } catch (error) {
-    console.error('Server startup error:', error);
-    process.exit(1);
-  }
+  await startServer();
 })();

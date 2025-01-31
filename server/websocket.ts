@@ -24,6 +24,12 @@ export function setupWebSocket(httpServer: Server) {
     const wss = new WebSocketServer({ 
       server: httpServer,
       verifyClient: (info: VerifyClientInfo, callback) => {
+        // Skip verification for vite-hmr requests
+        if (info.req.headers['sec-websocket-protocol'] === 'vite-hmr') {
+          callback(false);
+          return;
+        }
+
         const origin = info.origin || '';
         const isReplit = origin.includes('.repl.') || origin.includes('.replit.dev');
         // Accept connections from localhost (development) and Replit domains
@@ -39,7 +45,7 @@ export function setupWebSocket(httpServer: Server) {
     console.log('WebSocket server initialized successfully');
 
     // Broadcast carrier locations periodically
-    setInterval(async () => {
+    const broadcastInterval = setInterval(async () => {
       try {
         // Query active carriers from users table
         const activeCarriers = await db.select({
@@ -60,22 +66,22 @@ export function setupWebSocket(httpServer: Server) {
             name: carrier.name || `Carrier ${carrier.id}`
           }));
 
-        console.log('Broadcasting carrier locations:', carrierData);
+        if (wss.clients.size > 0) {
+          const message = JSON.stringify({
+            type: 'carrier_locations',
+            carriers: carrierData
+          });
 
-        const message = JSON.stringify({
-          type: 'carrier_locations',
-          carriers: carrierData
-        });
-
-        wss.clients.forEach(client => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(message);
-          }
-        });
+          wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(message);
+            }
+          });
+        }
       } catch (error) {
         console.error('Error broadcasting carrier locations:', error);
       }
-    }, 5000); // Update every 5 seconds
+    }, 5000);
 
     wss.on('connection', (ws: WebSocket) => {
       console.log('Client connected to tracking system');
@@ -127,6 +133,14 @@ export function setupWebSocket(httpServer: Server) {
 
       ws.on('close', () => {
         console.log('Client disconnected from tracking system');
+      });
+    });
+
+    // Cleanup on server close
+    httpServer.on('close', () => {
+      clearInterval(broadcastInterval);
+      wss.close(() => {
+        console.log('WebSocket server closed');
       });
     });
 
