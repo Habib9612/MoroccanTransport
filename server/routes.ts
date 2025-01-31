@@ -67,7 +67,7 @@ export function registerRoutes(app: Express): Server {
     setupAuth(app);
 
     // Setup OpenAPI validation and documentation
-    const openApiDocument = YAML.load(join(__dirname, '../server/openapi.yaml'));
+    const openApiDocument = YAML.load(join(__dirname, './openapi.yaml'));
     app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
     app.use(
