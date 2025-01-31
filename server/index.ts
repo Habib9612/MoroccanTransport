@@ -6,6 +6,9 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Set trust proxy for rate limiter to work behind reverse proxies
+app.set('trust proxy', true);
+
 // Add request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
