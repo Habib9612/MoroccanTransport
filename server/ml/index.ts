@@ -1,4 +1,3 @@
-
 import { spawn } from 'child_process';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -10,32 +9,35 @@ const __dirname = dirname(__filename);
 class PythonMLService {
   private static instance: PythonMLService;
   private modelInitialized: boolean = false;
+  private initializationPromise: Promise<void> | null = null;
 
   private constructor() {
-    console.log('Initializing PythonMLService with DeepSeek...');
-    this.initializeModel();
+    console.log('Initializing PythonMLService...');
   }
 
-  private async initializeModel() {
-    if (!this.modelInitialized) {
-      await this.callPythonScript('init_model.py', {});
-      this.modelInitialized = true;
-      
-      // Initialize RAG system with example documents
-      await this.callPythonScript('rag_utils.py', {
-        action: 'add_documents',
-        documents: [
-          {
-            content: 'Freight management and logistics optimization',
-            metadata: { type: 'documentation' }
-          },
-          {
-            content: 'Load matching using AI algorithms',
-            metadata: { type: 'documentation' }
-          }
-        ]
-      });
+  private async initializeModel(): Promise<void> {
+    if (this.initializationPromise) {
+      return this.initializationPromise;
     }
+
+    this.initializationPromise = (async () => {
+      if (!this.modelInitialized) {
+        try {
+          const result = await this.callPythonScript('init_model.py', {});
+          if (result.status === 'error') {
+            throw new Error(result.message);
+          }
+          this.modelInitialized = true;
+          console.log('Model initialized successfully:', result);
+        } catch (error) {
+          console.error('Failed to initialize model:', error);
+          this.modelInitialized = false;
+          throw error;
+        }
+      }
+    })();
+
+    return this.initializationPromise;
   }
 
   public static getInstance(): PythonMLService {
@@ -69,7 +71,7 @@ class PythonMLService {
       process.on('close', (code) => {
         if (code !== 0) {
           console.error(`Process exited with code ${code}`);
-          reject(new Error(error));
+          reject(new Error(error || 'Script execution failed'));
         } else {
           try {
             const parsed = JSON.parse(result);
@@ -85,6 +87,7 @@ class PythonMLService {
 
   async findMatches(load: any, carriers: any[], topK: number = 5): Promise<any[]> {
     try {
+      await this.initializeModel();
       return await this.callPythonScript('load_matching.py', { load, carriers, topK });
     } catch (error) {
       console.error('Error in findMatches:', error);
@@ -94,6 +97,7 @@ class PythonMLService {
 
   async suggestPrice(load: any, historicalLoads: any[]): Promise<any> {
     try {
+      await this.initializeModel();
       return await this.callPythonScript('pricing.py', { load, historicalLoads });
     } catch (error) {
       console.error('Error in suggestPrice:', error);
