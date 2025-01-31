@@ -8,6 +8,8 @@ dependencies = [
     "numpy>=2.2.2",
     "pandas>=2.2.3",
     "scikit-learn>=1.6.1",
+    "transformers>=4.38.0",
+    "torch>=2.2.0",
 ]
 
 [[tool.uv.index]]
@@ -17,4 +19,4 @@ url = "https://download.pytorch.org/whl/cpu"
 
 [tool.uv.sources]
 torch = [{ index = "pytorch-cpu", marker = "platform_system == 'Linux'" }]
-torchvision = [{ index = "pytorch-cpu", marker = "platform_system == 'Linux'" }, { index = "pytorch-cpu", marker = "platform_system == 'Linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "platform_system == 'Linux'" }]
