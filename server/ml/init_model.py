@@ -4,20 +4,26 @@ import os
 
 def init_model():
     try:
-        import torch
-        from transformers import AutoTokenizer
+        # First try importing the required packages
+        import numpy as np
+        from sklearn.preprocessing import StandardScaler
         from sentence_transformers import SentenceTransformer
 
-        # Initialize simpler model with specific device placement
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        model = SentenceTransformer('all-MiniLM-L6-v2')
+        # Initialize the model with simpler configuration
+        model = SentenceTransformer('paraphrase-MiniLM-L3-v2')
+        device = "cpu"  # Force CPU usage for reliability
         model.to(device)
 
-        # Verify model initialization
-        if model is None:
-            raise ValueError("Model initialization failed")
+        # Test if model is working by encoding a simple text
+        test_embedding = model.encode("Test sentence", convert_to_tensor=False)
+        if test_embedding is None or len(test_embedding) == 0:
+            raise ValueError("Model initialization test failed")
 
-        return {"status": "success", "message": f"Model initialized successfully on {device}"}
+        return {
+            "status": "success",
+            "message": f"Model initialized successfully on {device}",
+            "embedding_size": len(test_embedding)
+        }
 
     except ImportError as e:
         return {"status": "error", "message": f"Import error: {str(e)}"}
