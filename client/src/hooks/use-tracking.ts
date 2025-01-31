@@ -8,6 +8,7 @@ interface TrackingUpdate {
   longitude: number;
   status?: string;
   message?: string;
+  error?: string;
 }
 
 export function useTracking(onUpdate: (update: TrackingUpdate) => void) {
@@ -16,8 +17,11 @@ export function useTracking(onUpdate: (update: TrackingUpdate) => void) {
   const { toast } = useToast();
 
   useEffect(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}`;
+    const hostname = window.location.hostname;
+    const isReplit = hostname.includes('.repl');
+    const wsUrl = isReplit 
+      ? `wss://${hostname.replace('00-', '')}/ws/tracking` 
+      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/tracking`;
 
     try {
       ws.current = new ReconnectingWebSocket(wsUrl, [], {

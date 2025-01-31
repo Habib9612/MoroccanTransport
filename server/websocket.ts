@@ -22,45 +22,46 @@ interface VerifyClientInfo {
 export function setupWebSocket(httpServer: Server) {
   try {
     const wss = new WebSocketServer({ 
-      server: httpServer,
-      verifyClient: (info: VerifyClientInfo, callback) => {
-        // Skip verification for vite-hmr requests
-        if (info.req.headers['sec-websocket-protocol'] === 'vite-hmr') {
-          callback(false);
-          return;
-        }
-
-        const origin = info.origin || '';
-        const isReplit = origin.includes('.repl.') || origin.includes('.replit.dev');
-        // Accept connections from localhost (development) and Replit domains
-        if (isReplit || origin.includes('localhost') || origin === '') {
-          callback(true);
-          return;
-        }
-        console.log('Rejected WebSocket connection from origin:', origin);
-        callback(false);
-      }
+      noServer: true,
+      path: '/ws/tracking'
     });
 
     console.log('WebSocket server initialized successfully');
+
+    // Handle upgrade event manually to avoid conflicts with Vite's WebSocket
+    httpServer.on('upgrade', (request, socket, head) => {
+      const pathname = new URL(request.url!, `http://${request.headers.host}`).pathname;
+
+      // Skip if this is a Vite HMR WebSocket request
+      if (request.headers['sec-websocket-protocol']?.includes('vite-hmr')) {
+        return;
+      }
+
+      // Only handle our tracking WebSocket connections
+      if (pathname === '/ws/tracking') {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          wss.emit('connection', ws, request);
+        });
+      }
+    });
 
     // Broadcast carrier locations periodically
     const broadcastInterval = setInterval(async () => {
       try {
         // Query active carriers from users table
-        const activeCarriers = await db.select({
-          id: users.id,
-          currentLat: users.currentLat,
-          currentLng: users.currentLng,
-          name: users.companyName
-        })
-        .from(users)
-        .where(eq(users.userType, 'carrier'))
-        .where(eq(users.status, 'active'));
+        const activeCarriers = await db
+          .select({
+            id: users.id,
+            currentLat: users.currentLat,
+            currentLng: users.currentLng,
+            name: users.companyName
+          })
+          .from(users)
+          .where(eq(users.userType, 'carrier'));
 
         const carrierData = activeCarriers
-          .filter(carrier => carrier.currentLat && carrier.currentLng)
-          .map(carrier => ({
+          .filter((carrier: any) => carrier.currentLat && carrier.currentLng)
+          .map((carrier: any) => ({
             id: carrier.id,
             location: [carrier.currentLat, carrier.currentLng],
             name: carrier.name || `Carrier ${carrier.id}`
@@ -127,10 +128,6 @@ export function setupWebSocket(httpServer: Server) {
         }
       });
 
-      ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
-      });
-
       ws.on('close', () => {
         console.log('Client disconnected from tracking system');
       });
@@ -144,9 +141,7 @@ export function setupWebSocket(httpServer: Server) {
       });
     });
 
-    wss.on('error', (error) => {
-      console.error('WebSocket server error:', error);
-    });
+    return wss;
   } catch (error) {
     console.error('Error setting up WebSocket server:', error);
     throw error;

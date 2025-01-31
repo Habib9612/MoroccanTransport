@@ -19,8 +19,8 @@ function useWebSocket(url: string) {
     const isReplit = hostname.includes('.repl');
     // Construct WebSocket URL based on environment
     const wsUrl = isReplit 
-      ? `wss://${hostname.replace('00-', '')}/` 
-      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+      ? `wss://${hostname.replace('00-', '')}/ws/tracking` 
+      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/tracking`;
 
     console.log('Connecting to WebSocket URL:', wsUrl);
 
@@ -106,7 +106,7 @@ function HeatmapLayer({ points }: { points: number[][] }) {
 }
 
 export default function MapView({ loads, carriers = [] }: MapViewProps) {
-  const wsData = useWebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`);
+  const wsData = useWebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/tracking`);
   const [carrierLocations, setCarrierLocations] = useState(carriers);
   const mapRef = useRef(null);
 

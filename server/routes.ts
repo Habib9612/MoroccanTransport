@@ -16,59 +16,38 @@ import swaggerUi from 'swagger-ui-express';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export function registerRoutes(app: Express): Server {
-  // Health check endpoint
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
-  });
+// Function to find an available port
+async function findAvailablePort(startPort: number, maxAttempts: number = 10): Promise<number> {
+  const net = await import('net');
 
-  // Fleet Management Endpoints
-  app.get("/api/admin/fleet", async (req, res) => {
-    if (!req.isAuthenticated() || req.user?.role !== "admin") {
-      return res.status(401).send("Unauthorized");
+  function isPortAvailable(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      const server = net.createServer()
+        .once('error', () => {
+          resolve(false);
+        })
+        .once('listening', () => {
+          server.close();
+          resolve(true);
+        })
+        .listen(port, '0.0.0.0');
+    });
+  }
+
+  for (let port = startPort; port < startPort + maxAttempts; port++) {
+    if (await isPortAvailable(port)) {
+      return port;
     }
+  }
+  throw new Error('No available ports found');
+}
 
-    try {
-      const fleetStatus = await db.query(`
-        SELECT 
-          COUNT(CASE WHEN status = 'active' THEN 1 END) as active_trucks,
-          COUNT(CASE WHEN status = 'maintenance' THEN 1 END) as in_maintenance,
-          SUM(total_distance) as total_distance_covered
-        FROM vehicles
-      `);
-
-      res.json(fleetStatus);
-    } catch (error) {
-      console.error('Error fetching fleet status:', error);
-      res.status(500).json({ error: "Failed to fetch fleet status" });
-    }
-  });
-
-  app.post("/api/admin/maintenance", async (req, res) => {
-    if (!req.isAuthenticated() || req.user?.role !== "admin") {
-      return res.status(401).send("Unauthorized");
-    }
-
-    try {
-      const { vehicleId, type, description } = req.body;
-      const maintenance = await db.insert(maintenanceRecords).values({
-        vehicleId,
-        type,
-        description,
-        scheduledDate: new Date()
-      }).returning();
-
-      res.json(maintenance);
-    } catch (error) {
-      console.error('Error scheduling maintenance:', error);
-      res.status(500).json({ error: "Failed to schedule maintenance" });
-    }
-  });
+export async function registerRoutes(app: Express): Promise<Server> {
   try {
     // Setup security middleware
     setupSecurity(app);
 
-    // Setup authentication - ensuring this is called before other routes
+    // Setup authentication
     setupAuth(app);
 
     // Setup OpenAPI validation and documentation
@@ -82,6 +61,11 @@ export function registerRoutes(app: Express): Server {
         validateResponses: true,
       }),
     );
+
+    // Health check endpoint
+    app.get("/api/health", (req, res) => {
+      res.json({ status: "ok", timestamp: new Date().toISOString() });
+    });
 
     // Get load tracking updates
     app.get("/api/loads/:id/tracking", async (req, res) => {
@@ -208,9 +192,23 @@ export function registerRoutes(app: Express): Server {
       next(err);
     });
 
-    // Setup HTTP server and WebSocket
+    // Create HTTP server with dynamic port
+    const port = await findAvailablePort(3000);
     const httpServer = createServer(app);
-    setupWebSocket(httpServer);
+
+    // Set up WebSocket server after other middleware
+    const wss = setupWebSocket(httpServer);
+    if (!wss) {
+      throw new Error('Failed to initialize WebSocket server');
+    }
+
+    // Start listening on the available port
+    await new Promise<void>((resolve, reject) => {
+      httpServer.listen(port, '0.0.0.0', () => {
+        console.log(`Server started on port ${port}`);
+        resolve();
+      }).once('error', reject);
+    });
 
     return httpServer;
   } catch (error) {
