@@ -17,6 +17,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export function registerRoutes(app: Express): Server {
+  // Health check endpoint
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
   // Fleet Management Endpoints
   app.get("/api/admin/fleet", async (req, res) => {
     if (!req.isAuthenticated() || req.user?.role !== "admin") {
@@ -31,7 +36,7 @@ export function registerRoutes(app: Express): Server {
           SUM(total_distance) as total_distance_covered
         FROM vehicles
       `);
-      
+
       res.json(fleetStatus);
     } catch (error) {
       console.error('Error fetching fleet status:', error);
@@ -52,7 +57,7 @@ export function registerRoutes(app: Express): Server {
         description,
         scheduledDate: new Date()
       }).returning();
-      
+
       res.json(maintenance);
     } catch (error) {
       console.error('Error scheduling maintenance:', error);
