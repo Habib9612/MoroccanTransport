@@ -20,6 +20,21 @@ class PythonMLService {
     if (!this.modelInitialized) {
       await this.callPythonScript('init_model.py', {});
       this.modelInitialized = true;
+      
+      // Initialize RAG system with example documents
+      await this.callPythonScript('rag_utils.py', {
+        action: 'add_documents',
+        documents: [
+          {
+            content: 'Freight management and logistics optimization',
+            metadata: { type: 'documentation' }
+          },
+          {
+            content: 'Load matching using AI algorithms',
+            metadata: { type: 'documentation' }
+          }
+        ]
+      });
     }
   }
 
