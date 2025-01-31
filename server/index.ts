@@ -60,9 +60,9 @@ app.use((req, res, next) => {
     }
 
     const PORT = process.env.PORT || 5000;
-    server.listen(PORT, () => {
+    server.listen(PORT, "0.0.0.0", () => {
       log(`Server running on port ${PORT}`);
-      log(`API Documentation available at http://localhost:${PORT}/api-docs`);
+      log(`API Documentation available at http://0.0.0.0:${PORT}/api-docs`);
     });
   } catch (error) {
     console.error('Server startup error:', error);
