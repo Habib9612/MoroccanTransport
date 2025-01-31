@@ -92,3 +92,16 @@ export type InsertLoadUpdate = typeof loadUpdates.$inferInsert;
 export type SelectLoadUpdate = typeof loadUpdates.$inferSelect;
 export type InsertInvoice = typeof invoices.$inferInsert;
 export type SelectInvoice = typeof invoices.$inferSelect;
+
+export const aiModelStates = pgTable("ai_model_states", {
+  id: serial("id").primaryKey(),
+  modelName: text("model_name").notNull(),
+  stateData: text("state_data").notNull(), // JSON string of model state
+  version: integer("version").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+export const insertAIModelStateSchema = createInsertSchema(aiModelStates);
+export const selectAIModelStateSchema = createSelectSchema(aiModelStates);
+export type InsertAIModelState = typeof aiModelStates.$inferInsert;
+export type SelectAIModelState = typeof aiModelStates.$inferSelect;
