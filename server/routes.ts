@@ -17,6 +17,48 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export function registerRoutes(app: Express): Server {
+  // Fleet Management Endpoints
+  app.get("/api/admin/fleet", async (req, res) => {
+    if (!req.isAuthenticated() || req.user?.role !== "admin") {
+      return res.status(401).send("Unauthorized");
+    }
+
+    try {
+      const fleetStatus = await db.query(`
+        SELECT 
+          COUNT(CASE WHEN status = 'active' THEN 1 END) as active_trucks,
+          COUNT(CASE WHEN status = 'maintenance' THEN 1 END) as in_maintenance,
+          SUM(total_distance) as total_distance_covered
+        FROM vehicles
+      `);
+      
+      res.json(fleetStatus);
+    } catch (error) {
+      console.error('Error fetching fleet status:', error);
+      res.status(500).json({ error: "Failed to fetch fleet status" });
+    }
+  });
+
+  app.post("/api/admin/maintenance", async (req, res) => {
+    if (!req.isAuthenticated() || req.user?.role !== "admin") {
+      return res.status(401).send("Unauthorized");
+    }
+
+    try {
+      const { vehicleId, type, description } = req.body;
+      const maintenance = await db.insert(maintenanceRecords).values({
+        vehicleId,
+        type,
+        description,
+        scheduledDate: new Date()
+      }).returning();
+      
+      res.json(maintenance);
+    } catch (error) {
+      console.error('Error scheduling maintenance:', error);
+      res.status(500).json({ error: "Failed to schedule maintenance" });
+    }
+  });
   try {
     // Setup security middleware
     setupSecurity(app);
