@@ -133,3 +133,31 @@ paths:
                     createdAt:
                       type: string
                       format: date-time
+openapi: '3.0.0'
+info:
+  title: 'Logistics API'
+  version: '1.0.0'
+paths:
+  /api/loads:
+    get:
+      summary: Get all loads
+      responses:
+        '200':
+          description: List of loads
+    post:
+      summary: Create new load
+      responses:
+        '201':
+          description: Load created
+  /api/loads/{id}/tracking:
+    get:
+      summary: Get load tracking updates
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Tracking updates

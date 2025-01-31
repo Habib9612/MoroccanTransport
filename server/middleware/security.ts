@@ -55,23 +55,33 @@ export function auditLog(req: any, res: any, next: any) {
 
 export function setupSecurity(app: Express) {
   // Basic security headers
-  app.use(helmet());
-  
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "wss:", "https:"]
+      }
+    }
+  }));
+
   // Rate limiting
   app.use('/api/', limiter);
-  
+
   // API key authentication
   app.use('/api/', validateApiKey);
-  
+
   // Audit logging
   app.use('/api/', auditLog);
-  
+
   // Generate API key endpoint
   app.post('/api/generate-api-key', (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).send('Not authenticated');
     }
-    
+
     const apiKey = generateApiKey(req.user!.id.toString());
     res.json({ apiKey });
   });

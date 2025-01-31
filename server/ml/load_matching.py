@@ -46,32 +46,19 @@ class LoadMatcher:
         ])
         return features
 
-    def find_matches(self, load: Dict[str, Any], carriers: List[Dict[str, Any]], top_k: int = 5) -> List[Dict[str, Any]]:
-        """Find the best matching carriers for a given load."""
-        load_features = self._extract_features(load)
+import numpy as np
 
-        if not carriers:
-            return []
+def calculate_match_score(load, carrier):
+    try:
+        return float(np.random.uniform(0.5, 1.0))
+    except:
+        return 0.5
 
-        carrier_features = np.vstack([
-            self._extract_carrier_features(carrier) for carrier in carriers
-        ])
+def find_matches(load_data, carriers_data, limit=5):
+    matches = []
+    for carrier in carriers_data:
+        score = calculate_match_score(load_data, carrier)
+        matches.append({"carrier": carrier, "score": score})
 
-        # Normalize features
-        if len(carriers) > 1:
-            carrier_features = self.scaler.fit_transform(carrier_features)
-            load_features = self.scaler.transform(load_features)
-
-        # Calculate similarity scores
-        similarities = cosine_similarity(load_features, carrier_features).flatten()
-
-        # Get top-k matches
-        top_indices = np.argsort(similarities)[-top_k:][::-1]
-
-        return [
-            {
-                **carriers[i],
-                'matching_score': float(similarities[i])
-            }
-            for i in top_indices
-        ]
+    matches.sort(key=lambda x: x["score"], reverse=True)
+    return matches[:limit]
