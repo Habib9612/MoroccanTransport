@@ -3,9 +3,18 @@ import { join } from 'path';
 
 class PythonMLService {
   private static instance: PythonMLService;
+  private modelInitialized: boolean = false;
 
   private constructor() {
-    console.log('Initializing PythonMLService...');
+    console.log('Initializing PythonMLService with DeepSeek...');
+    this.initializeModel();
+  }
+
+  private async initializeModel() {
+    if (!this.modelInitialized) {
+      await this.callPythonScript('init_model.py', {});
+      this.modelInitialized = true;
+    }
   }
 
   public static getInstance(): PythonMLService {
