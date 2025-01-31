@@ -43,11 +43,12 @@ app.use((req, res, next) => {
 (async () => {
   let retries = 0;
   const maxRetries = 3;
-  const PORT = process.env.PORT || 3000;
+  const PORT = parseInt(process.env.PORT || "3000", 10);
 
   const startServer = async () => {
     try {
-      const server = registerRoutes(app);
+      // Create HTTP server first
+      const server = await registerRoutes(app);
 
       // Global error handler
       app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -64,7 +65,8 @@ app.use((req, res, next) => {
         serveStatic(app);
       }
 
-      server.listen(PORT, '0.0.0.0', () => {
+      // Start listening only after everything is set up
+      server.listen(PORT, () => {
         log(`Server running on port ${PORT}`);
         log(`Application available at http://0.0.0.0:${PORT}`);
         log(`API Documentation available at http://0.0.0.0:${PORT}/api-docs`);

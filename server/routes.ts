@@ -16,32 +16,6 @@ import swaggerUi from 'swagger-ui-express';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Function to find an available port
-async function findAvailablePort(startPort: number, maxAttempts: number = 10): Promise<number> {
-  const net = await import('net');
-
-  function isPortAvailable(port: number): Promise<boolean> {
-    return new Promise((resolve) => {
-      const server = net.createServer()
-        .once('error', () => {
-          resolve(false);
-        })
-        .once('listening', () => {
-          server.close();
-          resolve(true);
-        })
-        .listen(port, '0.0.0.0');
-    });
-  }
-
-  for (let port = startPort; port < startPort + maxAttempts; port++) {
-    if (await isPortAvailable(port)) {
-      return port;
-    }
-  }
-  throw new Error('No available ports found');
-}
-
 export async function registerRoutes(app: Express): Promise<Server> {
   try {
     // Setup security middleware
@@ -192,8 +166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next(err);
     });
 
-    // Create HTTP server with dynamic port
-    const port = await findAvailablePort(3000);
+    // Create HTTP server
     const httpServer = createServer(app);
 
     // Set up WebSocket server after other middleware
@@ -201,14 +174,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!wss) {
       throw new Error('Failed to initialize WebSocket server');
     }
-
-    // Start listening on the available port
-    await new Promise<void>((resolve, reject) => {
-      httpServer.listen(port, '0.0.0.0', () => {
-        console.log(`Server started on port ${port}`);
-        resolve();
-      }).once('error', reject);
-    });
 
     return httpServer;
   } catch (error) {
