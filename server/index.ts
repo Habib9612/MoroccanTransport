@@ -59,10 +59,10 @@ app.use((req, res, next) => {
       serveStatic(app);
     }
 
-    const PORT = process.env.PORT || 3000;
+    const PORT = 3000;
 
     // Fix: Use correct type for hostname and properly bind to all interfaces
-    server.listen(PORT, () => {
+    server.listen(PORT, '0.0.0.0', () => {
       log(`Server running on port ${PORT}`);
       log(`Application available at http://0.0.0.0:${PORT}`);
       log(`API Documentation available at http://0.0.0.0:${PORT}/api-docs`);
