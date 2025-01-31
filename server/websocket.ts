@@ -2,7 +2,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import type { Server } from 'http';
 import type { IncomingMessage } from 'http';
 import { db } from "@db";
-import { loads, loadUpdates } from "@db/schema";
+import { loads, loadUpdates, users } from "@db/schema";
 import { eq } from "drizzle-orm";
 
 interface TrackingUpdate {
@@ -11,6 +11,13 @@ interface TrackingUpdate {
   longitude: number;
   status?: string;
   message?: string;
+}
+
+interface CarrierLocation {
+  id: number;
+  latitude: number;
+  longitude: number;
+  lastUpdate: Date;
 }
 
 interface VerifyClientInfo {
@@ -31,6 +38,44 @@ export function setupWebSocket(httpServer: Server) {
     });
 
     console.log('WebSocket server initialized successfully');
+
+    // Broadcast carrier locations periodically
+    setInterval(async () => {
+      try {
+        // Query active carriers from users table
+        const activeCarriers = await db
+          .select({
+            id: users.id,
+            currentLat: users.currentLat,
+            currentLng: users.currentLng,
+            name: users.companyName
+          })
+          .from(users)
+          .where(eq(users.userType, 'carrier'))
+          .where(eq(users.status, 'active'));
+
+        const carrierData = activeCarriers
+          .filter(carrier => carrier.currentLat && carrier.currentLng)
+          .map(carrier => ({
+            id: carrier.id,
+            location: [carrier.currentLat, carrier.currentLng],
+            name: carrier.name || `Carrier ${carrier.id}`
+          }));
+
+        const message = JSON.stringify({
+          type: 'carrier_locations',
+          carriers: carrierData
+        });
+
+        wss.clients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(message);
+          }
+        });
+      } catch (error) {
+        console.error('Error broadcasting carrier locations:', error);
+      }
+    }, 5000); // Update every 5 seconds
 
     wss.on('connection', (ws: WebSocket) => {
       console.log('Client connected to tracking system');
@@ -60,7 +105,11 @@ export function setupWebSocket(httpServer: Server) {
           });
 
           // Broadcast update to all connected clients
-          const broadcastData = JSON.stringify(data);
+          const broadcastData = JSON.stringify({
+            type: 'load_update',
+            data
+          });
+
           wss.clients.forEach((client) => {
             if (client !== ws && client.readyState === WebSocket.OPEN) {
               client.send(broadcastData);

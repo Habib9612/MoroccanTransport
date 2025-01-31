@@ -20,7 +20,12 @@ export const users = pgTable("users", {
   operatingRegions: text("operating_regions"), // JSON string of regions
   insuranceInfo: text("insurance_info"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull()
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  // Location tracking for carriers
+  currentLat: doublePrecision("current_lat"),
+  currentLng: doublePrecision("current_lng"),
+  lastLocationUpdate: timestamp("last_location_update"),
+  status: text("status").default('inactive'), // active, inactive, maintenance
 });
 
 export const loads = pgTable("loads", {
@@ -51,7 +56,6 @@ export const loads = pgTable("loads", {
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
-// New table for tracking updates
 export const loadUpdates = pgTable("load_updates", {
   id: serial("id").primaryKey(),
   loadId: integer("load_id").notNull(),
@@ -62,7 +66,6 @@ export const loadUpdates = pgTable("load_updates", {
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
-// New table for invoices
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
   loadId: integer("load_id").notNull(),
