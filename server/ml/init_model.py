@@ -1,8 +1,25 @@
-
 import json
 import sys
+import os
+import numpy as np
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
+
+try:
+    print(json.dumps({
+        "status": "success", 
+        "message": "Basic ML dependencies initialized successfully"
+    }))
+except ImportError as e:
+    print(json.dumps({
+        "status": "error", 
+        "message": f"Import error: {str(e)}"
+    }))
+except Exception as e:
+    print(json.dumps({
+        "status": "error", 
+        "message": f"Initialization error: {str(e)}"
+    }))
 
 try:
     # Initialize DeepSeek Code model

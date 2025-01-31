@@ -1,12 +1,13 @@
-from typing import Dict, List, Any
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
+from typing import Dict, List, Any
 from datetime import datetime
+import joblib  # More stable than sklearn for loading models
 
 class DynamicPricing:
     def __init__(self):
-        self.model = RandomForestRegressor(n_estimators=100, random_state=42)
+        self.model = None
         self.is_trained = False
+        self.scaler = None
 
     def _extract_pricing_features(self, load: Dict[str, Any]) -> np.ndarray:
         """Extract features for price prediction."""
@@ -49,29 +50,24 @@ class DynamicPricing:
                 return {'suggested_price': float(base_price * adjustment)}
 
             # Extract features and prices from historical data
-            X = np.vstack([self._extract_pricing_features(l) for l in historical_loads])
-            y = np.array([float(l['price']) for l in historical_loads])
+            features = np.vstack([self._extract_pricing_features(l) for l in historical_loads])
+            prices = np.array([float(l['price']) for l in historical_loads])
 
-            # Train the model if not already trained
-            if not self.is_trained:
-                self.model.fit(X, y)
+            # Initialize model if not already done
+            if not self.model:
+                self.model = joblib.load('models/pricing_model.joblib')
+                self.scaler = joblib.load('models/pricing_scaler.joblib')
                 self.is_trained = True
 
+            # Scale features
+            if self.scaler:
+                features = self.scaler.transform(features)
+
             # Predict price
-            features = self._extract_pricing_features(load)
-            predicted_price = float(self.model.predict(features)[0])
+            predicted_price = float(self.model.predict(features)[0]) if self.is_trained else np.mean(prices)
 
             # Calculate confidence interval
-            predictions = []
-            for _ in range(10):
-                sample_idx = np.random.choice(len(historical_loads), size=len(historical_loads))
-                sample_X = X[sample_idx]
-                sample_y = y[sample_idx]
-                temp_model = RandomForestRegressor(n_estimators=50, random_state=None)
-                temp_model.fit(sample_X, sample_y)
-                predictions.append(float(temp_model.predict(features)[0]))
-
-            price_std = float(np.std(predictions))
+            price_std = float(np.std(prices))
             confidence = 'high' if price_std < predicted_price * 0.1 else 'medium'
 
             return {
@@ -83,7 +79,8 @@ class DynamicPricing:
                 'confidence': confidence
             }
         except Exception as e:
-            # Fallback to a simple estimation in case of errors
+            print(f"Error in price suggestion: {str(e)}")
+            # Fallback to a simple estimation
             return {
                 'suggested_price': 1000.0,
                 'price_range': {'min': 900.0, 'max': 1100.0},
