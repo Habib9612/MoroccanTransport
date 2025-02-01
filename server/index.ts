@@ -9,6 +9,9 @@ process.env.VITE_DEV_SERVER_HOSTNAME = "0.0.0.0";
 process.env.VITE_HMR_PROTOCOL = "wss";
 process.env.VITE_CLIENT_HOSTNAME = "0.0.0.0";
 process.env.VITE_WS_HOST = "0.0.0.0";
+// Add support for Janeway domain
+process.env.VITE_DEV_SERVER_HTTPS = "false";
+process.env.VITE_ALLOWED_HOSTS = "moroccan-transport-lhbibbaiga.replit.app,moroccan-transport-lhbibbaiga.username.repl.co,7242f997-9443-4e12-8d0b-b9a3df65337c-00-2hzv8wqtjyqji.janeway.replit.dev";
 
 const app = express();
 app.use(express.json());
@@ -16,10 +19,10 @@ app.use(express.urlencoded({ extended: false }));
 
 app.set('trust proxy', true);
 
-// Enhanced CORS configuration for development
+// Enhanced CORS configuration
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const isReplitDev = origin?.includes('.replit.dev') || origin?.includes('.repl.co');
+  const isReplitDev = origin?.includes('.replit.dev') || origin?.includes('.repl.co') || origin?.includes('janeway.replit.dev');
 
   // In development or for Replit domains, be more permissive
   if (process.env.NODE_ENV !== 'production' || isReplitDev) {
@@ -27,7 +30,8 @@ app.use((req, res, next) => {
   } else {
     const allowedOrigins = [
       'https://moroccan-transport-lhbibbaiga.replit.app',
-      'https://moroccan-transport-lhbibbaiga.username.repl.co'
+      'https://moroccan-transport-lhbibbaiga.username.repl.co',
+      'https://7242f997-9443-4e12-8d0b-b9a3df65337c-00-2hzv8wqtjyqji.janeway.replit.dev'
     ];
     if (origin && allowedOrigins.includes(origin)) {
       res.header('Access-Control-Allow-Origin', origin);
