@@ -55,25 +55,26 @@ export function auditLog(req: any, res: any, next: any) {
 }
 
 export function setupSecurity(app: Express) {
-  // Basic security headers with WebSocket support
+  // Configure security headers with relaxed settings for development
   app.use(helmet({
     contentSecurityPolicy: {
+      useDefaults: false,
       directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "http:"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https:", "http:"],
-        imgSrc: ["'self'", "data:", "https:", "blob:"],
-        connectSrc: ["'self'", "ws:", "wss:", "https:", "http:", "*"],
-        frameSrc: ["'self'"],
-        fontSrc: ["'self'", "https:", "data:"],
+        defaultSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "blob:", "data:", "*"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "blob:", "data:", "*"],
+        connectSrc: ["'self'", "ws:", "wss:", "http:", "https:", "*"],
+        imgSrc: ["'self'", "data:", "blob:", "https:", "*"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https:", "*"],
+        fontSrc: ["'self'", "data:", "https:", "*"],
         objectSrc: ["'none'"],
-        mediaSrc: ["'self'"],
+        mediaSrc: ["'self'", "*"],
+        frameSrc: ["'self'"],
         workerSrc: ["'self'", "blob:"],
       }
     },
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
-    crossOriginOpenerPolicy: false,
+    crossOriginOpenerPolicy: false
   }));
 
   // Rate limiting
@@ -85,25 +86,32 @@ export function setupSecurity(app: Express) {
   // Audit logging
   app.use('/api/', auditLog);
 
-  // CORS setup for Replit and development
+  // CORS configuration with WebSocket support
   app.use((req, res, next) => {
     const origin = req.headers.origin;
-    // Allow Replit domains and local development
-    if (origin && (
-      origin.endsWith('.repl.co') || 
-      origin.endsWith('.replit.dev') || 
-      origin === 'http://localhost:5000' ||
-      origin === 'http://localhost:3000'
-    )) {
-      res.header('Access-Control-Allow-Origin', origin);
+
+    // Allow all origins in development, but maintain security in production
+    if (process.env.NODE_ENV === 'production') {
+      const allowedOrigins = [
+        /\.repl\.co$/,
+        /\.replit\.dev$/,
+        // Add your production domains here
+      ];
+
+      if (origin && allowedOrigins.some(pattern => pattern.test(origin))) {
+        res.header('Access-Control-Allow-Origin', origin);
+        res.header('Access-Control-Allow-Credentials', 'true');
+      }
     } else {
-      res.header('Access-Control-Allow-Origin', '*');
+      // In development, allow all origins
+      res.header('Access-Control-Allow-Origin', origin || '*');
+      res.header('Access-Control-Allow-Credentials', 'true');
     }
 
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-API-Key, Authorization');
-    res.header('Access-Control-Allow-Credentials', 'true');
 
+    // Handle preflight requests
     if (req.method === 'OPTIONS') {
       res.sendStatus(200);
     } else {

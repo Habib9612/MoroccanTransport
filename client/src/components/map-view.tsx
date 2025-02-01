@@ -5,60 +5,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 import { Card } from "@/components/ui/card";
 import { SelectLoad } from "@db/schema";
-import ReconnectingWebSocket from 'reconnecting-websocket';
-
-// Custom hook for WebSocket connection
-function useWebSocket(url: string) {
-  const [data, setData] = useState<any>(null);
-  const ws = useRef<ReconnectingWebSocket | null>(null);
-
-  useEffect(() => {
-    // Get the current hostname from window.location
-    const hostname = window.location.hostname;
-    // Check if we're running on Replit
-    const isReplit = hostname.includes('.repl');
-    // Construct WebSocket URL based on environment
-    const wsUrl = isReplit 
-      ? `wss://${hostname.replace('00-', '')}/ws/tracking` 
-      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/tracking`;
-
-    console.log('Connecting to WebSocket URL:', wsUrl);
-
-    const websocket = new ReconnectingWebSocket(wsUrl, [], {
-      WebSocket: window.WebSocket,
-      connectionTimeout: 4000,
-      maxRetries: 10,
-    });
-
-    websocket.onopen = () => {
-      console.log('WebSocket connection established');
-    };
-
-    websocket.onmessage = (event) => {
-      try {
-        const parsedData = JSON.parse(event.data);
-        console.log('Received WebSocket data:', parsedData);
-        setData(parsedData);
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-      }
-    };
-
-    websocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-
-    ws.current = websocket;
-
-    return () => {
-      if (ws.current) {
-        ws.current.close();
-      }
-    };
-  }, [url]);
-
-  return data;
-}
+import { useWebSocket } from "@/hooks/use-websocket";
 
 // Initialize leaflet
 delete (Icon.Default.prototype as any)._getIconUrl;
@@ -106,16 +53,24 @@ function HeatmapLayer({ points }: { points: number[][] }) {
 }
 
 export default function MapView({ loads, carriers = [] }: MapViewProps) {
-  const wsData = useWebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/tracking`);
+  const { isConnected, carriers: wsCarriers, error } = useWebSocket('/ws/tracking');
   const [carrierLocations, setCarrierLocations] = useState(carriers);
   const mapRef = useRef(null);
 
   useEffect(() => {
-    if (wsData?.type === 'carrier_locations') {
-      console.log('Updating carrier locations:', wsData.carriers);
-      setCarrierLocations(wsData.carriers);
+    if (wsCarriers) {
+      console.log('Updating carrier locations:', wsCarriers);
+      setCarrierLocations(wsCarriers);
     }
-  }, [wsData]);
+  }, [wsCarriers]);
+
+  // Log connection status and any errors
+  useEffect(() => {
+    if (error) {
+      console.error('WebSocket error:', error);
+    }
+    console.log('WebSocket connected:', isConnected);
+  }, [isConnected, error]);
 
   // Calculate map bounds based on all points
   const allPoints = [
@@ -164,6 +119,7 @@ export default function MapView({ loads, carriers = [] }: MapViewProps) {
                 <p>From: {load.origin}</p>
                 <p>To: {load.destination}</p>
                 <p>Status: {load.status}</p>
+                {error && <p className="text-red-500">Connection error: {error}</p>}
               </div>
             </Popup>
           </Marker>
@@ -184,6 +140,7 @@ export default function MapView({ loads, carriers = [] }: MapViewProps) {
               <div className="p-2">
                 <h3 className="font-semibold">{carrier.name}</h3>
                 <p>Carrier ID: {carrier.id}</p>
+                {!isConnected && <p className="text-yellow-500">Reconnecting...</p>}
               </div>
             </Popup>
           </Marker>

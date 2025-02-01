@@ -2,7 +2,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import type { Server } from 'http';
 import type { IncomingMessage } from 'http';
 import { db } from "@db";
-import { loads, loadUpdates, users } from "@db/schema";
+import { loads, loadUpdates } from "@db/schema";
 import { eq } from "drizzle-orm";
 
 interface TrackingUpdate {
@@ -13,20 +13,14 @@ interface TrackingUpdate {
   message?: string;
 }
 
-interface VerifyClientInfo {
-  origin: string;
-  secure: boolean;
-  req: IncomingMessage;
-}
-
 export function setupWebSocket(httpServer: Server) {
   try {
+    console.log('Initializing WebSocket server...');
+
     const wss = new WebSocketServer({ 
       noServer: true,
       path: '/ws/tracking'
     });
-
-    console.log('WebSocket server initialized successfully');
 
     // Handle upgrade event manually to avoid conflicts with Vite's WebSocket
     httpServer.on('upgrade', (request, socket, head) => {
@@ -34,7 +28,7 @@ export function setupWebSocket(httpServer: Server) {
         const url = new URL(request.url!, `http://${request.headers.host}`);
         const pathname = url.pathname;
 
-        // Log upgrade request details for debugging
+        // Debug logging
         console.log('WebSocket upgrade request:', {
           url: request.url,
           host: request.headers.host,
@@ -49,7 +43,28 @@ export function setupWebSocket(httpServer: Server) {
           return;
         }
 
-        // Only handle our tracking WebSocket connections
+        // Handle CORS for WebSocket upgrade
+        const origin = request.headers.origin;
+        if (origin) {
+          const allowedOrigins = [
+            /\.repl\.co$/,
+            /\.replit\.dev$/,
+            /^http:\/\/localhost:/,
+            // Add your production domains here
+          ];
+
+          const isAllowed = process.env.NODE_ENV !== 'production' || 
+                          allowedOrigins.some(pattern => pattern.test(origin));
+
+          if (!isAllowed) {
+            console.log(`Rejected WebSocket connection from unauthorized origin: ${origin}`);
+            socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+            socket.destroy();
+            return;
+          }
+        }
+
+        // Only handle tracking WebSocket connections
         if (pathname === '/ws/tracking') {
           console.log('Handling WebSocket upgrade for tracking');
           wss.handleUpgrade(request, socket, head, (ws) => {
@@ -65,53 +80,21 @@ export function setupWebSocket(httpServer: Server) {
       }
     });
 
-    // Broadcast carrier locations periodically
-    const broadcastInterval = setInterval(async () => {
-      try {
-        // Query active carriers from users table
-        const activeCarriers = await db
-          .select({
-            id: users.id,
-            currentLat: users.currentLat,
-            currentLng: users.currentLng,
-            name: users.companyName
-          })
-          .from(users)
-          .where(eq(users.userType, 'carrier'));
-
-        const carrierData = activeCarriers
-          .filter((carrier: any) => carrier.currentLat && carrier.currentLng)
-          .map((carrier: any) => ({
-            id: carrier.id,
-            location: [carrier.currentLat, carrier.currentLng],
-            name: carrier.name || `Carrier ${carrier.id}`
-          }));
-
-        if (wss.clients.size > 0) {
-          const message = JSON.stringify({
-            type: 'carrier_locations',
-            carriers: carrierData
-          });
-
-          wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(message);
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Error broadcasting carrier locations:', error);
-      }
-    }, 5000);
-
+    // Connection handling with detailed logging
     wss.on('connection', (ws: WebSocket, request: IncomingMessage) => {
       const clientIp = request.socket.remoteAddress;
-      console.log(`Client connected to tracking system from ${clientIp}`);
+      console.log(`New WebSocket connection established from ${clientIp}`);
+
+      // Send initial message to confirm connection
+      ws.send(JSON.stringify({ 
+        type: 'connection_established', 
+        timestamp: new Date().toISOString() 
+      }));
 
       ws.on('message', async (message: string) => {
         try {
-          const data: TrackingUpdate = JSON.parse(message);
-          console.log('Received tracking update:', data);
+          console.log('Received message:', message.toString());
+          const data: TrackingUpdate = JSON.parse(message.toString());
 
           // Update load location
           await db.update(loads)
@@ -139,39 +122,34 @@ export function setupWebSocket(httpServer: Server) {
           });
 
           wss.clients.forEach((client) => {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
+            if (client.readyState === WebSocket.OPEN) {
               client.send(broadcastData);
             }
           });
         } catch (error) {
-          console.error('Error processing tracking update:', error);
+          console.error('Error processing message:', error);
           ws.send(JSON.stringify({ 
             type: 'error',
-            error: 'Failed to process update'
+            error: 'Failed to process message'
           }));
         }
       });
 
+      // Error handling
       ws.on('error', (error) => {
-        console.error('WebSocket connection error:', error);
+        console.error('WebSocket error:', error);
       });
 
+      // Cleanup on close
       ws.on('close', () => {
-        console.log(`Client disconnected from tracking system (${clientIp})`);
+        console.log(`WebSocket connection closed (${clientIp})`);
       });
     });
 
-    // Cleanup on server close
-    httpServer.on('close', () => {
-      clearInterval(broadcastInterval);
-      wss.close(() => {
-        console.log('WebSocket server closed');
-      });
-    });
-
+    console.log('WebSocket server setup completed successfully');
     return wss;
   } catch (error) {
-    console.error('Error setting up WebSocket server:', error);
+    console.error('Fatal error setting up WebSocket server:', error);
     throw error;
   }
 }
