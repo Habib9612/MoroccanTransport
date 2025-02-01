@@ -18,16 +18,23 @@ export function useWebSocket(path: string) {
   const wsRef = useRef<ReconnectingWebSocket | null>(null);
 
   useEffect(() => {
-    const hostname = window.location.hostname;
-    const port = window.location.port;
+    // Get the current protocol and hostname
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const hostname = window.location.hostname;
 
-    // Handle various Replit domain patterns
-    const wsUrl = hostname.endsWith('.replit.dev')
-      ? `${protocol}//${hostname}${path}`
-      : hostname.includes('.repl.co')
-      ? `${protocol}//${hostname}${path}`
-      : `${protocol}//${hostname}${port ? `:${port}` : ''}${path}`;
+    // Construct WebSocket URL based on the environment
+    let wsUrl: string;
+    if (hostname.includes('.replit.dev')) {
+      // For Replit dev environment
+      wsUrl = `${protocol}//${hostname}${path}`;
+    } else if (hostname.includes('.repl.co')) {
+      // For Replit production environment
+      wsUrl = `${protocol}//${hostname}${path}`;
+    } else {
+      // For local development
+      const port = window.location.port;
+      wsUrl = `${protocol}//${hostname}${port ? `:${port}` : ''}${path}`;
+    }
 
     console.log('Attempting WebSocket connection to:', wsUrl);
 
@@ -40,7 +47,7 @@ export function useWebSocket(path: string) {
     });
 
     wsRef.current.onopen = () => {
-      console.log('WebSocket connected to:', wsUrl);
+      console.log('WebSocket connected successfully');
       setIsConnected(true);
     };
 
@@ -52,10 +59,13 @@ export function useWebSocket(path: string) {
     wsRef.current.onmessage = (event) => {
       try {
         const message: WebSocketMessage = JSON.parse(event.data);
+        console.log('Received WebSocket message:', message);
 
         switch (message.type) {
           case 'carrier_locations':
-            setCarriers(message.carriers);
+            if (Array.isArray(message.carriers)) {
+              setCarriers(message.carriers);
+            }
             break;
           case 'load_update':
             setLastUpdate(message.data);
@@ -73,7 +83,9 @@ export function useWebSocket(path: string) {
     };
 
     return () => {
-      wsRef.current?.close();
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
     };
   }, [path]);
 
