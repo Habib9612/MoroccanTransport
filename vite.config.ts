@@ -21,6 +21,12 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    allowedHosts: true
+    host: '0.0.0.0', 
+      port: 3000, 
+      strictPort: true, 
+      allowedHosts: [
+        'moroccan-transport-lhbibbaiga.replit.app',
+        'moroccan-transport-lhbibbaiga.username.repl.co' 
+      ]
   },
 });
