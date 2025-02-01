@@ -22,11 +22,12 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0', 
-      port: 3000, 
+      port: 5000, 
       strictPort: true, 
       allowedHosts: [
         'moroccan-transport-lhbibbaiga.replit.app',
         'moroccan-transport-lhbibbaiga.username.repl.co' 
+,        '7242f997-9443-4e12-8d0b-b9a3df65337c-00-2hzv8wqtjyqji.janeway.replit.dev'
       ]
   },
 });
