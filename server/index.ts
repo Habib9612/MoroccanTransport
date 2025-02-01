@@ -9,6 +9,18 @@ app.use(express.urlencoded({ extended: false }));
 // Set trust proxy for rate limiter to work behind reverse proxies
 app.set('trust proxy', true);
 
+// Add CORS headers for all environments
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
 // Add request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
@@ -60,17 +72,6 @@ app.use((req, res, next) => {
 
       // Setup static file serving and development middleware
       if (app.get("env") === "development") {
-        // Add CORS headers for development
-        app.use((req, res, next) => {
-          res.header('Access-Control-Allow-Origin', '*');
-          res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-          res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-          if (req.method === 'OPTIONS') {
-            res.sendStatus(200);
-          } else {
-            next();
-          }
-        });
         await setupVite(app, server);
       } else {
         serveStatic(app);
