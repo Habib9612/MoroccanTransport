@@ -9,11 +9,25 @@ app.use(express.urlencoded({ extended: false }));
 // Set trust proxy for rate limiter to work behind reverse proxies
 app.set('trust proxy', true);
 
-// Add CORS headers for all environments
+// Enhanced CORS configuration to handle Replit domains
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const allowedOrigins = [
+    'https://moroccan-transport-lhbibbaiga.replit.app',
+    'https://moroccan-transport-lhbibbaiga.username.repl.co',
+    'https://7242f997-9443-4e12-8d0b-b9a3df65337c-00-2hzv8wqtjyqji.janeway.replit.dev'
+  ];
+
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+
   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
   } else {
