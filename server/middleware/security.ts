@@ -55,23 +55,9 @@ export function auditLog(req: any, res: any, next: any) {
 }
 
 export function setupSecurity(app: Express) {
-  // Configure security headers with relaxed settings for development
+  // Configure security headers for development
   app.use(helmet({
-    contentSecurityPolicy: {
-      useDefaults: false,
-      directives: {
-        defaultSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "blob:", "data:", "*"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "blob:", "data:", "*"],
-        connectSrc: ["'self'", "ws:", "wss:", "http:", "https:", "*"],
-        imgSrc: ["'self'", "data:", "blob:", "https:", "*"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https:", "*"],
-        fontSrc: ["'self'", "data:", "https:", "*"],
-        objectSrc: ["'none'"],
-        mediaSrc: ["'self'", "*"],
-        frameSrc: ["'self'"],
-        workerSrc: ["'self'", "blob:"],
-      }
-    },
+    contentSecurityPolicy: false, // Disable CSP in development
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
     crossOriginOpenerPolicy: false
@@ -86,12 +72,16 @@ export function setupSecurity(app: Express) {
   // Audit logging
   app.use('/api/', auditLog);
 
-  // CORS configuration with WebSocket support
+  // CORS configuration with support for CRA development server
   app.use((req, res, next) => {
     const origin = req.headers.origin;
 
-    // Allow all origins in development, but maintain security in production
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'development') {
+      // In development, allow CRA development server
+      res.header('Access-Control-Allow-Origin', origin || 'http://localhost:3000');
+      res.header('Access-Control-Allow-Credentials', 'true');
+    } else {
+      // In production, check against allowed origins
       const allowedOrigins = [
         /\.repl\.co$/,
         /\.replit\.dev$/,
@@ -102,10 +92,6 @@ export function setupSecurity(app: Express) {
         res.header('Access-Control-Allow-Origin', origin);
         res.header('Access-Control-Allow-Credentials', 'true');
       }
-    } else {
-      // In development, allow all origins
-      res.header('Access-Control-Allow-Origin', origin || '*');
-      res.header('Access-Control-Allow-Credentials', 'true');
     }
 
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');

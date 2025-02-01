@@ -18,66 +18,8 @@ export function setupWebSocket(httpServer: Server) {
     console.log('Initializing WebSocket server...');
 
     const wss = new WebSocketServer({ 
-      noServer: true,
+      server: httpServer,
       path: '/ws/tracking'
-    });
-
-    // Handle upgrade event manually to avoid conflicts with Vite's WebSocket
-    httpServer.on('upgrade', (request, socket, head) => {
-      try {
-        const url = new URL(request.url!, `http://${request.headers.host}`);
-        const pathname = url.pathname;
-
-        // Debug logging
-        console.log('WebSocket upgrade request:', {
-          url: request.url,
-          host: request.headers.host,
-          origin: request.headers.origin,
-          protocol: request.headers['sec-websocket-protocol'],
-          pathname
-        });
-
-        // Skip if this is a Vite HMR WebSocket request
-        if (request.headers['sec-websocket-protocol']?.includes('vite-hmr')) {
-          console.log('Skipping Vite HMR WebSocket request');
-          return;
-        }
-
-        // Handle CORS for WebSocket upgrade
-        const origin = request.headers.origin;
-        if (origin) {
-          const allowedOrigins = [
-            /\.repl\.co$/,
-            /\.replit\.dev$/,
-            /^http:\/\/localhost:/,
-            // Add your production domains here
-          ];
-
-          const isAllowed = process.env.NODE_ENV !== 'production' || 
-                          allowedOrigins.some(pattern => pattern.test(origin));
-
-          if (!isAllowed) {
-            console.log(`Rejected WebSocket connection from unauthorized origin: ${origin}`);
-            socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
-            socket.destroy();
-            return;
-          }
-        }
-
-        // Only handle tracking WebSocket connections
-        if (pathname === '/ws/tracking') {
-          console.log('Handling WebSocket upgrade for tracking');
-          wss.handleUpgrade(request, socket, head, (ws) => {
-            wss.emit('connection', ws, request);
-          });
-        } else {
-          console.log(`Unhandled WebSocket path: ${pathname}`);
-          socket.destroy();
-        }
-      } catch (error) {
-        console.error('Error in WebSocket upgrade handler:', error);
-        socket.destroy();
-      }
     });
 
     // Connection handling with detailed logging

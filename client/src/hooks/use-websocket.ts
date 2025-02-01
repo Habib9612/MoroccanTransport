@@ -22,38 +22,31 @@ export function useWebSocket(path: string) {
 
   useEffect(() => {
     try {
-      // Get the current protocol and hostname
+      // Get the current protocol and host
       const isSecure = window.location.protocol === 'https:';
       const wsProtocol = isSecure ? 'wss:' : 'ws:';
-      const hostname = window.location.hostname;
-      const port = window.location.port;
 
-      // Normalize the hostname and port for different environments
+      // In development, CRA runs on port 3000 and proxies to backend
+      // In production, we use the same host
       let wsUrl: string;
-      const isReplit = hostname.includes('.repl.co') || hostname.includes('.replit.dev');
-      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
-
-      if (isReplit) {
-        // For Replit environments, use the full hostname
-        wsUrl = `${wsProtocol}//${hostname}${path}`;
-      } else if (isLocalhost) {
-        // For local development
-        wsUrl = `${wsProtocol}//${hostname}:${port || '5000'}${path}`;
+      if (process.env.NODE_ENV === 'development') {
+        // Use the same host but different port for WebSocket in development
+        const host = window.location.hostname;
+        wsUrl = `${wsProtocol}//${host}:5000${path}`;
       } else {
-        // For other hosts (production, staging, etc.)
-        wsUrl = `${wsProtocol}//${hostname}${port ? `:${port}` : ''}${path}`;
+        // In production, use the same host
+        wsUrl = `${wsProtocol}//${window.location.host}${path}`;
       }
 
       console.log('Initializing WebSocket connection to:', wsUrl);
 
-      // Initialize WebSocket with comprehensive error handling
       wsRef.current = new ReconnectingWebSocket(wsUrl, [], {
         maxRetries: 15,
         reconnectionDelayGrowFactor: 1.3,
         maxReconnectionDelay: 10000,
         minReconnectionDelay: 1000,
         connectionTimeout: 4000,
-        debug: process.env.NODE_ENV !== 'production',
+        debug: process.env.NODE_ENV === 'development',
       });
 
       wsRef.current.onopen = () => {
@@ -102,9 +95,7 @@ export function useWebSocket(path: string) {
         setError('Connection error occurred');
       };
 
-      // Cleanup function
       return () => {
-        console.log('Cleaning up WebSocket connection');
         if (wsRef.current) {
           wsRef.current.close();
         }
@@ -115,7 +106,6 @@ export function useWebSocket(path: string) {
     }
   }, [path]);
 
-  // Function to send messages with error handling
   const sendMessage = (message: any) => {
     if (!wsRef.current) {
       setError('WebSocket not initialized');
