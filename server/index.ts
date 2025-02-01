@@ -1,15 +1,31 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { createProxyMiddleware } from 'http-proxy-middleware';
+
+// Configure Vite for development
+process.env.VITE_ALLOW_ORIGIN = "*";
+process.env.VITE_FORCE_DEV_SERVER = "true";
+process.env.VITE_DEV_SERVER_HOSTNAME = "0.0.0.0";
+process.env.VITE_HMR_PROTOCOL = "wss";
+process.env.VITE_CLIENT_HOSTNAME = "0.0.0.0";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Set trust proxy for rate limiter to work behind reverse proxies
 app.set('trust proxy', true);
 
-// Enhanced CORS configuration to handle Replit domains
+// Development-specific middleware
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/', createProxyMiddleware({
+    target: 'http://localhost:5000',
+    changeOrigin: true,
+    ws: true,
+    logLevel: 'debug'
+  }));
+}
+
 app.use((req, res, next) => {
   const allowedOrigins = [
     'https://moroccan-transport-lhbibbaiga.replit.app',
@@ -35,12 +51,13 @@ app.use((req, res, next) => {
   }
 });
 
-// Add request logging middleware
+// Add request logging middleware with more detailed logging
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
+  // Capture JSON responses for logging
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
     capturedJsonResponse = bodyJson;
@@ -54,6 +71,10 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
+
+      // Add request headers to debug CORS issues
+      logLine += ` | Origin: ${req.headers.origin || 'none'}`;
+      logLine += ` | Host: ${req.headers.host || 'none'}`;
 
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
@@ -73,10 +94,8 @@ app.use((req, res, next) => {
 
   const startServer = async () => {
     try {
-      // Create HTTP server first
       const server = await registerRoutes(app);
 
-      // Global error handler
       app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
         console.error('Error:', err);
         const status = err.status || err.statusCode || 500;
@@ -84,21 +103,18 @@ app.use((req, res, next) => {
         res.status(status).json({ message });
       });
 
-      // Setup static file serving and development middleware
       if (app.get("env") === "development") {
         await setupVite(app, server);
       } else {
         serveStatic(app);
       }
 
-      // Start listening only after everything is set up
       server.listen(PORT, () => {
         log(`Server running on port ${PORT}`);
         log(`Application available at http://0.0.0.0:${PORT}`);
         log(`API Documentation available at http://0.0.0.0:${PORT}/api-docs`);
       });
 
-      // Handle server errors
       server.on('error', (error: any) => {
         if (error.code === 'EADDRINUSE') {
           console.error(`Port ${PORT} is already in use`);
