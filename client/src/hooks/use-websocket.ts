@@ -18,13 +18,21 @@ export function useWebSocket(path: string) {
   const wsRef = useRef<ReconnectingWebSocket | null>(null);
 
   useEffect(() => {
+    const hostname = window.location.hostname;
+    const port = window.location.port;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}${path}`;
-    
+
+    // Handle Replit domain specifically
+    const wsUrl = hostname.includes('.replit.dev')
+      ? `${protocol}//${hostname.replace('00-', '')}${path}`
+      : `${protocol}//${hostname}${port ? `:${port}` : ''}${path}`;
+
+    console.log('Attempting WebSocket connection to:', wsUrl);
+
     wsRef.current = new ReconnectingWebSocket(wsUrl);
 
     wsRef.current.onopen = () => {
-      console.log('WebSocket connected');
+      console.log('WebSocket connected to:', wsUrl);
       setIsConnected(true);
     };
 
@@ -36,7 +44,7 @@ export function useWebSocket(path: string) {
     wsRef.current.onmessage = (event) => {
       try {
         const message: WebSocketMessage = JSON.parse(event.data);
-        
+
         switch (message.type) {
           case 'carrier_locations':
             setCarriers(message.carriers);
@@ -52,6 +60,10 @@ export function useWebSocket(path: string) {
       }
     };
 
+    wsRef.current.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
     return () => {
       wsRef.current?.close();
     };
@@ -60,6 +72,8 @@ export function useWebSocket(path: string) {
   const sendMessage = (message: any) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message));
+    } else {
+      console.warn('WebSocket is not connected');
     }
   };
 

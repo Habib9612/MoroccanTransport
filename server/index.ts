@@ -1,7 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { createProxyMiddleware } from 'http-proxy-middleware';
 
 // Configure Vite for development
 process.env.VITE_ALLOW_ORIGIN = "*";
@@ -9,6 +8,7 @@ process.env.VITE_FORCE_DEV_SERVER = "true";
 process.env.VITE_DEV_SERVER_HOSTNAME = "0.0.0.0";
 process.env.VITE_HMR_PROTOCOL = "wss";
 process.env.VITE_CLIENT_HOSTNAME = "0.0.0.0";
+process.env.VITE_WS_HOST = "0.0.0.0";
 
 const app = express();
 app.use(express.json());
@@ -16,34 +16,31 @@ app.use(express.urlencoded({ extended: false }));
 
 app.set('trust proxy', true);
 
-// Development-specific middleware
-if (process.env.NODE_ENV !== 'production') {
-  app.use('/', createProxyMiddleware({
-    target: 'http://localhost:5000',
-    changeOrigin: true,
-    ws: true,
-    logLevel: 'debug'
-  }));
-}
-
+// Enhanced CORS configuration
 app.use((req, res, next) => {
   const allowedOrigins = [
     'https://moroccan-transport-lhbibbaiga.replit.app',
-    'https://moroccan-transport-lhbibbaiga.username.repl.co',
-    'https://7242f997-9443-4e12-8d0b-b9a3df65337c-00-2hzv8wqtjyqji.janeway.replit.dev'
+    'https://moroccan-transport-lhbibbaiga.username.repl.co'
   ];
 
   const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
+
+  // In development, allow all origins including Replit dev domains
+  if (process.env.NODE_ENV !== 'production') {
+    if (origin) {
+      res.header('Access-Control-Allow-Origin', origin);
+    } else {
+      res.header('Access-Control-Allow-Origin', '*');
+    }
+  } else if (origin && allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
   }
 
   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.header('Access-Control-Allow-Credentials', 'true');
 
+  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
   } else {
@@ -109,7 +106,7 @@ app.use((req, res, next) => {
         serveStatic(app);
       }
 
-      server.listen(PORT, () => {
+      server.listen(PORT, "0.0.0.0", () => {
         log(`Server running on port ${PORT}`);
         log(`Application available at http://0.0.0.0:${PORT}`);
         log(`API Documentation available at http://0.0.0.0:${PORT}/api-docs`);

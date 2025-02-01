@@ -18,10 +18,13 @@ export function useTracking(onUpdate: (update: TrackingUpdate) => void) {
 
   useEffect(() => {
     const hostname = window.location.hostname;
-    const isReplit = hostname.includes('.repl');
-    const wsUrl = isReplit 
-      ? `wss://${hostname.replace('00-', '')}/ws/tracking` 
-      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/tracking`;
+    const port = window.location.port;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+
+    // Handle Replit domain specifically
+    const wsUrl = hostname.includes('.replit.dev')
+      ? `${protocol}//${hostname.replace('00-', '')}/ws/tracking`
+      : `${protocol}//${hostname}${port ? `:${port}` : ''}/ws/tracking`;
 
     try {
       ws.current = new ReconnectingWebSocket(wsUrl, [], {
@@ -32,7 +35,8 @@ export function useTracking(onUpdate: (update: TrackingUpdate) => void) {
         debug: true,
       });
 
-      // Connection opened
+      console.log('Attempting WebSocket connection to:', wsUrl);
+
       ws.current.addEventListener('open', () => {
         console.log('Connected to tracking server');
         setIsConnected(true);
@@ -42,7 +46,6 @@ export function useTracking(onUpdate: (update: TrackingUpdate) => void) {
         });
       });
 
-      // Listen for messages
       ws.current.addEventListener('message', (event) => {
         try {
           const update: TrackingUpdate = JSON.parse(event.data);
@@ -56,7 +59,6 @@ export function useTracking(onUpdate: (update: TrackingUpdate) => void) {
         }
       });
 
-      // Connection closed
       ws.current.addEventListener('close', () => {
         console.log('Disconnected from tracking server');
         setIsConnected(false);
@@ -67,7 +69,6 @@ export function useTracking(onUpdate: (update: TrackingUpdate) => void) {
         });
       });
 
-      // Connection error
       ws.current.addEventListener('error', (error) => {
         console.error('WebSocket error:', error);
         toast({
@@ -77,7 +78,6 @@ export function useTracking(onUpdate: (update: TrackingUpdate) => void) {
         });
       });
 
-      // Cleanup on unmount
       return () => {
         if (ws.current) {
           ws.current.close();

@@ -30,18 +30,24 @@ export function setupWebSocket(httpServer: Server) {
 
     // Handle upgrade event manually to avoid conflicts with Vite's WebSocket
     httpServer.on('upgrade', (request, socket, head) => {
-      const pathname = new URL(request.url!, `http://${request.headers.host}`).pathname;
+      const url = new URL(request.url!, `http://${request.headers.host}`);
+      const pathname = url.pathname;
 
       // Skip if this is a Vite HMR WebSocket request
       if (request.headers['sec-websocket-protocol']?.includes('vite-hmr')) {
+        console.log('Skipping Vite HMR WebSocket request');
         return;
       }
 
       // Only handle our tracking WebSocket connections
       if (pathname === '/ws/tracking') {
+        console.log('Handling WebSocket upgrade for tracking');
         wss.handleUpgrade(request, socket, head, (ws) => {
           wss.emit('connection', ws, request);
         });
+      } else {
+        console.log(`Unhandled WebSocket path: ${pathname}`);
+        socket.destroy();
       }
     });
 
@@ -84,8 +90,9 @@ export function setupWebSocket(httpServer: Server) {
       }
     }, 5000);
 
-    wss.on('connection', (ws: WebSocket) => {
-      console.log('Client connected to tracking system');
+    wss.on('connection', (ws: WebSocket, request: IncomingMessage) => {
+      const clientIp = request.socket.remoteAddress;
+      console.log(`Client connected to tracking system from ${clientIp}`);
 
       ws.on('message', async (message: string) => {
         try {
@@ -124,12 +131,19 @@ export function setupWebSocket(httpServer: Server) {
           });
         } catch (error) {
           console.error('Error processing tracking update:', error);
-          ws.send(JSON.stringify({ error: 'Failed to process update' }));
+          ws.send(JSON.stringify({ 
+            type: 'error',
+            error: 'Failed to process update'
+          }));
         }
       });
 
+      ws.on('error', (error) => {
+        console.error('WebSocket connection error:', error);
+      });
+
       ws.on('close', () => {
-        console.log('Client disconnected from tracking system');
+        console.log(`Client disconnected from tracking system (${clientIp})`);
       });
     });
 
