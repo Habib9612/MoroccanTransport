@@ -18,16 +18,72 @@ export function setupWebSocket(httpServer: Server) {
     console.log('Initializing WebSocket server...');
 
     const wss = new WebSocketServer({ 
-      server: httpServer,
+      noServer: true,
       path: '/ws/tracking'
     });
 
-    // Connection handling with detailed logging
+    // Handle upgrade manually to support both CRA and Vite
+    httpServer.on('upgrade', (request: IncomingMessage, socket, head) => {
+      try {
+        const url = new URL(request.url!, `http://${request.headers.host}`);
+        const pathname = url.pathname;
+
+        // Skip Vite HMR WebSocket requests
+        if (request.headers['sec-websocket-protocol']?.includes('vite-hmr')) {
+          console.log('Skipping Vite HMR WebSocket request');
+          return;
+        }
+
+        // Always allow in development mode
+        const isDev = process.env.NODE_ENV === 'development';
+        if (isDev) {
+          if (pathname === '/ws/tracking') {
+            wss.handleUpgrade(request, socket, head, (ws) => {
+              wss.emit('connection', ws, request);
+            });
+          } else {
+            socket.destroy();
+          }
+          return;
+        }
+
+        // Production CORS check
+        const origin = request.headers.origin;
+        if (origin) {
+          const allowedOrigins = [
+            /\.repl\.co$/,
+            /\.replit\.dev$/,
+            // Add your production domains here
+          ];
+
+          if (!allowedOrigins.some(pattern => pattern.test(origin))) {
+            console.log(`Rejected connection from unauthorized origin: ${origin}`);
+            socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+            socket.destroy();
+            return;
+          }
+        }
+
+        // Handle tracking WebSocket connections
+        if (pathname === '/ws/tracking') {
+          wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit('connection', ws, request);
+          });
+        } else {
+          socket.destroy();
+        }
+      } catch (error) {
+        console.error('WebSocket upgrade error:', error);
+        socket.destroy();
+      }
+    });
+
+    // Connection handling
     wss.on('connection', (ws: WebSocket, request: IncomingMessage) => {
       const clientIp = request.socket.remoteAddress;
-      console.log(`New WebSocket connection established from ${clientIp}`);
+      console.log(`New WebSocket connection from ${clientIp}`);
 
-      // Send initial message to confirm connection
+      // Send initial connection confirmation
       ws.send(JSON.stringify({ 
         type: 'connection_established', 
         timestamp: new Date().toISOString() 
@@ -48,7 +104,7 @@ export function setupWebSocket(httpServer: Server) {
             })
             .where(eq(loads.id, data.loadId));
 
-          // Create tracking update record
+          // Create tracking update
           await db.insert(loadUpdates).values({
             loadId: data.loadId,
             status: data.status || 'location_update',
@@ -57,7 +113,7 @@ export function setupWebSocket(httpServer: Server) {
             message: data.message,
           });
 
-          // Broadcast update to all connected clients
+          // Broadcast update to all clients
           const broadcastData = JSON.stringify({
             type: 'load_update',
             data
@@ -69,7 +125,7 @@ export function setupWebSocket(httpServer: Server) {
             }
           });
         } catch (error) {
-          console.error('Error processing message:', error);
+          console.error('Message processing error:', error);
           ws.send(JSON.stringify({ 
             type: 'error',
             error: 'Failed to process message'
@@ -77,21 +133,19 @@ export function setupWebSocket(httpServer: Server) {
         }
       });
 
-      // Error handling
       ws.on('error', (error) => {
         console.error('WebSocket error:', error);
       });
 
-      // Cleanup on close
       ws.on('close', () => {
-        console.log(`WebSocket connection closed (${clientIp})`);
+        console.log(`Connection closed (${clientIp})`);
       });
     });
 
-    console.log('WebSocket server setup completed successfully');
+    console.log('WebSocket server initialized successfully');
     return wss;
   } catch (error) {
-    console.error('Fatal error setting up WebSocket server:', error);
+    console.error('Fatal WebSocket server error:', error);
     throw error;
   }
 }

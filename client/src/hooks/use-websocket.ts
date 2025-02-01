@@ -22,23 +22,17 @@ export function useWebSocket(path: string) {
 
   useEffect(() => {
     try {
-      // Get the current protocol and host
-      const isSecure = window.location.protocol === 'https:';
-      const wsProtocol = isSecure ? 'wss:' : 'ws:';
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host;
+      const isReplit = host.includes('.repl.co') || host.includes('.replit.dev');
 
-      // In development, CRA runs on port 3000 and proxies to backend
-      // In production, we use the same host
-      let wsUrl: string;
-      if (process.env.NODE_ENV === 'development') {
-        // Use the same host but different port for WebSocket in development
-        const host = window.location.hostname;
-        wsUrl = `${wsProtocol}//${host}:5000${path}`;
-      } else {
-        // In production, use the same host
-        wsUrl = `${wsProtocol}//${window.location.host}${path}`;
-      }
+      // For Replit deployments, use the same host
+      // For local development, connect to port 5000
+      const wsUrl = isReplit
+        ? `${protocol}//${host}${path}`
+        : `${protocol}//${window.location.hostname}:5000${path}`;
 
-      console.log('Initializing WebSocket connection to:', wsUrl);
+      console.log('Connecting WebSocket to:', wsUrl);
 
       wsRef.current = new ReconnectingWebSocket(wsUrl, [], {
         maxRetries: 15,
@@ -50,13 +44,13 @@ export function useWebSocket(path: string) {
       });
 
       wsRef.current.onopen = () => {
-        console.log('WebSocket connection established');
+        console.log('WebSocket connected successfully');
         setIsConnected(true);
         setError(null);
       };
 
       wsRef.current.onclose = (event) => {
-        console.log('WebSocket disconnected:', event);
+        console.log('WebSocket connection closed:', event);
         setIsConnected(false);
         setError('Connection closed. Attempting to reconnect...');
       };
@@ -64,7 +58,7 @@ export function useWebSocket(path: string) {
       wsRef.current.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
-          console.log('Received WebSocket message:', message);
+          console.log('Received message:', message);
 
           switch (message.type) {
             case 'connection_established':
@@ -82,10 +76,10 @@ export function useWebSocket(path: string) {
               setError(message.error || 'Unknown error occurred');
               break;
             default:
-              console.log('Unknown message type:', message.type);
+              console.warn('Unknown message type:', message.type);
           }
         } catch (error) {
-          console.error('Error processing WebSocket message:', error);
+          console.error('Failed to process message:', error);
           setError('Failed to process server message');
         }
       };
@@ -101,7 +95,7 @@ export function useWebSocket(path: string) {
         }
       };
     } catch (error) {
-      console.error('Error setting up WebSocket:', error);
+      console.error('Failed to initialize WebSocket:', error);
       setError('Failed to initialize WebSocket connection');
     }
   }, [path]);
@@ -120,7 +114,7 @@ export function useWebSocket(path: string) {
     try {
       wsRef.current.send(JSON.stringify(message));
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Failed to send message:', error);
       setError('Failed to send message');
     }
   };

@@ -57,7 +57,7 @@ export function auditLog(req: any, res: any, next: any) {
 export function setupSecurity(app: Express) {
   // Configure security headers for development
   app.use(helmet({
-    contentSecurityPolicy: false, // Disable CSP in development
+    contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
     crossOriginOpenerPolicy: false
@@ -72,20 +72,22 @@ export function setupSecurity(app: Express) {
   // Audit logging
   app.use('/api/', auditLog);
 
-  // CORS configuration with support for CRA development server
+  // CORS configuration with support for both CRA and Vite
   app.use((req, res, next) => {
     const origin = req.headers.origin;
+    const isDev = process.env.NODE_ENV === 'development';
+    const isReplit = req.headers.host?.includes('.repl.co') || req.headers.host?.includes('.replit.dev');
 
-    if (process.env.NODE_ENV === 'development') {
-      // In development, allow CRA development server
-      res.header('Access-Control-Allow-Origin', origin || 'http://localhost:3000');
+    if (isDev || isReplit) {
+      // In development or Replit environment, allow the request origin
+      res.header('Access-Control-Allow-Origin', origin || '*');
       res.header('Access-Control-Allow-Credentials', 'true');
     } else {
-      // In production, check against allowed origins
+      // Production CORS handling
       const allowedOrigins = [
         /\.repl\.co$/,
         /\.replit\.dev$/,
-        // Add your production domains here
+        // Add production domains here
       ];
 
       if (origin && allowedOrigins.some(pattern => pattern.test(origin))) {
@@ -97,7 +99,7 @@ export function setupSecurity(app: Express) {
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-API-Key, Authorization');
 
-    // Handle preflight requests
+    // Handle preflight
     if (req.method === 'OPTIONS') {
       res.sendStatus(200);
     } else {
