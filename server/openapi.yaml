@@ -46,6 +46,23 @@ components:
           type: string
           format: date-time
 
+    TrackingUpdate:
+      type: object
+      properties:
+        id:
+          type: integer
+        loadId:
+          type: integer
+        status:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+
 paths:
   /loads:
     get:
@@ -61,7 +78,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Load'
-    
+
     post:
       summary: Create a new load
       security:
@@ -118,46 +135,28 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
-                  properties:
-                    id:
-                      type: integer
-                    loadId:
-                      type: integer
-                    status:
-                      type: string
-                    latitude:
-                      type: number
-                    longitude:
-                      type: number
-                    createdAt:
-                      type: string
-                      format: date-time
-openapi: '3.0.0'
-info:
-  title: 'Logistics API'
-  version: '1.0.0'
-paths:
-  /api/loads:
-    get:
-      summary: Get all loads
-      responses:
-        '200':
-          description: List of loads
+                  $ref: '#/components/schemas/TrackingUpdate'
+
+  /loads/price-suggestion:
     post:
-      summary: Create new load
-      responses:
-        '201':
-          description: Load created
-  /api/loads/{id}/tracking:
-    get:
-      summary: Get load tracking updates
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      summary: Get price suggestion for a load
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Load'
       responses:
         '200':
-          description: Tracking updates
+          description: Price suggestion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestedPrice:
+                    type: number
+                  confidence:
+                    type: number
