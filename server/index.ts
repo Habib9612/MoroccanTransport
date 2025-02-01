@@ -16,24 +16,22 @@ app.use(express.urlencoded({ extended: false }));
 
 app.set('trust proxy', true);
 
-// Enhanced CORS configuration
+// Enhanced CORS configuration for development
 app.use((req, res, next) => {
-  const allowedOrigins = [
-    'https://moroccan-transport-lhbibbaiga.replit.app',
-    'https://moroccan-transport-lhbibbaiga.username.repl.co'
-  ];
-
   const origin = req.headers.origin;
+  const isReplitDev = origin?.includes('.replit.dev') || origin?.includes('.repl.co');
 
-  // In development, allow all origins including Replit dev domains
-  if (process.env.NODE_ENV !== 'production') {
-    if (origin) {
+  // In development or for Replit domains, be more permissive
+  if (process.env.NODE_ENV !== 'production' || isReplitDev) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  } else {
+    const allowedOrigins = [
+      'https://moroccan-transport-lhbibbaiga.replit.app',
+      'https://moroccan-transport-lhbibbaiga.username.repl.co'
+    ];
+    if (origin && allowedOrigins.includes(origin)) {
       res.header('Access-Control-Allow-Origin', origin);
-    } else {
-      res.header('Access-Control-Allow-Origin', '*');
     }
-  } else if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
   }
 
   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
@@ -48,7 +46,7 @@ app.use((req, res, next) => {
   }
 });
 
-// Add request logging middleware with more detailed logging
+// Add request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -72,10 +70,7 @@ app.use((req, res, next) => {
       // Add request headers to debug CORS issues
       logLine += ` | Origin: ${req.headers.origin || 'none'}`;
       logLine += ` | Host: ${req.headers.host || 'none'}`;
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
+      logLine += ` | WebSocket: ${req.headers.upgrade === 'websocket' ? 'yes' : 'no'}`;
 
       log(logLine);
     }
@@ -100,7 +95,7 @@ app.use((req, res, next) => {
         res.status(status).json({ message });
       });
 
-      if (app.get("env") === "development") {
+      if (process.env.NODE_ENV !== 'production') {
         await setupVite(app, server);
       } else {
         serveStatic(app);
@@ -110,6 +105,11 @@ app.use((req, res, next) => {
         log(`Server running on port ${PORT}`);
         log(`Application available at http://0.0.0.0:${PORT}`);
         log(`API Documentation available at http://0.0.0.0:${PORT}/api-docs`);
+        log(`WebSocket server ready for connections on ws://0.0.0.0:${PORT}/ws/tracking`);
+      });
+
+      server.on('upgrade', (request, socket, head) => {
+        log(`WebSocket upgrade request received from ${request.headers.host}`);
       });
 
       server.on('error', (error: any) => {

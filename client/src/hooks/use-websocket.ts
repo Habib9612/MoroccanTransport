@@ -22,14 +22,22 @@ export function useWebSocket(path: string) {
     const port = window.location.port;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
-    // Handle Replit domain specifically
-    const wsUrl = hostname.includes('.replit.dev')
-      ? `${protocol}//${hostname.replace('00-', '')}${path}`
+    // Handle various Replit domain patterns
+    const wsUrl = hostname.endsWith('.replit.dev')
+      ? `${protocol}//${hostname}${path}`
+      : hostname.includes('.repl.co')
+      ? `${protocol}//${hostname}${path}`
       : `${protocol}//${hostname}${port ? `:${port}` : ''}${path}`;
 
     console.log('Attempting WebSocket connection to:', wsUrl);
 
-    wsRef.current = new ReconnectingWebSocket(wsUrl);
+    wsRef.current = new ReconnectingWebSocket(wsUrl, [], {
+      maxRetries: 5,
+      reconnectionDelayGrowFactor: 1.3,
+      maxReconnectionDelay: 30000,
+      minReconnectionDelay: 1000,
+      debug: true,
+    });
 
     wsRef.current.onopen = () => {
       console.log('WebSocket connected to:', wsUrl);
@@ -71,7 +79,11 @@ export function useWebSocket(path: string) {
 
   const sendMessage = (message: any) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message));
+      try {
+        wsRef.current.send(JSON.stringify(message));
+      } catch (error) {
+        console.error('Error sending message:', error);
+      }
     } else {
       console.warn('WebSocket is not connected');
     }

@@ -30,23 +30,37 @@ export function setupWebSocket(httpServer: Server) {
 
     // Handle upgrade event manually to avoid conflicts with Vite's WebSocket
     httpServer.on('upgrade', (request, socket, head) => {
-      const url = new URL(request.url!, `http://${request.headers.host}`);
-      const pathname = url.pathname;
+      try {
+        const url = new URL(request.url!, `http://${request.headers.host}`);
+        const pathname = url.pathname;
 
-      // Skip if this is a Vite HMR WebSocket request
-      if (request.headers['sec-websocket-protocol']?.includes('vite-hmr')) {
-        console.log('Skipping Vite HMR WebSocket request');
-        return;
-      }
-
-      // Only handle our tracking WebSocket connections
-      if (pathname === '/ws/tracking') {
-        console.log('Handling WebSocket upgrade for tracking');
-        wss.handleUpgrade(request, socket, head, (ws) => {
-          wss.emit('connection', ws, request);
+        // Log upgrade request details for debugging
+        console.log('WebSocket upgrade request:', {
+          url: request.url,
+          host: request.headers.host,
+          origin: request.headers.origin,
+          protocol: request.headers['sec-websocket-protocol'],
+          pathname
         });
-      } else {
-        console.log(`Unhandled WebSocket path: ${pathname}`);
+
+        // Skip if this is a Vite HMR WebSocket request
+        if (request.headers['sec-websocket-protocol']?.includes('vite-hmr')) {
+          console.log('Skipping Vite HMR WebSocket request');
+          return;
+        }
+
+        // Only handle our tracking WebSocket connections
+        if (pathname === '/ws/tracking') {
+          console.log('Handling WebSocket upgrade for tracking');
+          wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit('connection', ws, request);
+          });
+        } else {
+          console.log(`Unhandled WebSocket path: ${pathname}`);
+          socket.destroy();
+        }
+      } catch (error) {
+        console.error('Error in WebSocket upgrade handler:', error);
         socket.destroy();
       }
     });

@@ -13,3 +13,8 @@ coverage/
 *.swp
 *.swo
 .replit.backup
+.vercel
+.next
+build/
+tmp/
+temp/

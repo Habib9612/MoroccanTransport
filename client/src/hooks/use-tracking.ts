@@ -21,10 +21,14 @@ export function useTracking(onUpdate: (update: TrackingUpdate) => void) {
     const port = window.location.port;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
-    // Handle Replit domain specifically
-    const wsUrl = hostname.includes('.replit.dev')
-      ? `${protocol}//${hostname.replace('00-', '')}/ws/tracking`
+    // Handle various Replit domain patterns
+    const wsUrl = hostname.endsWith('.replit.dev')
+      ? `${protocol}//${hostname}/ws/tracking`
+      : hostname.includes('.repl.co')
+      ? `${protocol}//${hostname}/ws/tracking`
       : `${protocol}//${hostname}${port ? `:${port}` : ''}/ws/tracking`;
+
+    console.log('Attempting WebSocket connection to:', wsUrl);
 
     try {
       ws.current = new ReconnectingWebSocket(wsUrl, [], {
@@ -34,8 +38,6 @@ export function useTracking(onUpdate: (update: TrackingUpdate) => void) {
         minReconnectionDelay: 1000,
         debug: true,
       });
-
-      console.log('Attempting WebSocket connection to:', wsUrl);
 
       ws.current.addEventListener('open', () => {
         console.log('Connected to tracking server');
@@ -59,8 +61,8 @@ export function useTracking(onUpdate: (update: TrackingUpdate) => void) {
         }
       });
 
-      ws.current.addEventListener('close', () => {
-        console.log('Disconnected from tracking server');
+      ws.current.addEventListener('close', (event) => {
+        console.log('Disconnected from tracking server:', event.reason);
         setIsConnected(false);
         toast({
           variant: "destructive",
