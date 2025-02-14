@@ -7,6 +7,7 @@ import AuthPage from "@/pages/auth-page";
 import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
 import Profile from "@/pages/profile";
+import LandingPage from "@/pages/LandingPage";
 import { useUser } from "@/hooks/use-user";
 import Navbar from "@/components/layout/navbar";
 import { Loader2 } from "lucide-react";
@@ -23,12 +24,15 @@ function Router() {
     );
   }
 
-  // Show login/register page if not authenticated
+  // Show landing page for non-authenticated users
   if (!user) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <AuthPage />
-      </div>
+      <Switch>
+        <Route path="/" component={LandingPage} />
+        <Route path="/login" component={AuthPage} />
+        <Route path="/register" component={AuthPage} />
+        <Route component={NotFound} />
+      </Switch>
     );
   }
 

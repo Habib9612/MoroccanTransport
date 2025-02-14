@@ -6,13 +6,16 @@ import "leaflet.heat";
 import { Card } from "@/components/ui/card";
 import { SelectLoad } from "@db/schema";
 import { useWebSocket } from "@/hooks/use-websocket";
+import MarkerIcon from 'leaflet/dist/images/marker-icon.png';
+import MarkerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import MarkerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 // Initialize leaflet
 delete (Icon.Default.prototype as any)._getIconUrl;
 Icon.Default.mergeOptions({
-  iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-  iconUrl: require('leaflet/dist/images/marker-icon.png'),
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+  iconRetinaUrl: MarkerIcon2x,
+  iconUrl: MarkerIcon,
+  shadowUrl: MarkerShadow,
 });
 
 interface MapViewProps {
@@ -26,7 +29,19 @@ interface MapViewProps {
 
 declare global {
   interface Window {
-    L: any;
+    L: {
+      heatLayer: (
+        latlngs: number[][],
+        options?: {
+          minOpacity?: number;
+          maxZoom?: number;
+          max?: number;
+          radius?: number;
+          blur?: number;
+          gradient?: { [key: string]: string };
+        }
+      ) => any;
+    };
   }
 }
 
@@ -51,6 +66,8 @@ function HeatmapLayer({ points }: { points: number[][] }) {
 
   return null;
 }
+
+const truckIconUrl = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'%3E%3Cpath fill='%23000' d='M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z'/%3E%3C/svg%3E";
 
 export default function MapView({ loads, carriers = [] }: MapViewProps) {
   const { isConnected, carriers: wsCarriers, error } = useWebSocket('/ws/tracking');
@@ -131,7 +148,7 @@ export default function MapView({ loads, carriers = [] }: MapViewProps) {
             key={carrier.id}
             position={carrier.location}
             icon={new Icon({
-              iconUrl: '/truck-icon.svg',
+              iconUrl: truckIconUrl,
               iconSize: [25, 25],
               iconAnchor: [12, 12]
             })}
