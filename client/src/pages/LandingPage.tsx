@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { SiTruckersmp } from "react-icons/si";
+import { TbTruckDelivery } from "react-icons/tb";
 import { Link } from "wouter";
 
 export default function LandingPage() {
@@ -10,7 +10,7 @@ export default function LandingPage() {
       <section className="py-20 px-4 md:px-6 lg:px-8">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center">
-            <SiTruckersmp className="w-16 h-16 mx-auto mb-6 text-primary" />
+            <TbTruckDelivery className="w-16 h-16 mx-auto mb-6 text-primary" />
             <h1 className="text-4xl md:text-6xl font-bold mb-6">
               Revolutionizing Freight Logistics in Morocco
             </h1>
