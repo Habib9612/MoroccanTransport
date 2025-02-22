@@ -11,11 +11,25 @@ import LandingPage from "@/pages/LandingPage";
 import { useUser } from "@/hooks/use-user";
 import Navbar from "@/components/layout/navbar";
 import { Loader2 } from "lucide-react";
+import AboutPage from "@/pages/AboutPage";
 
 function Router() {
   const { user, isLoading } = useUser();
 
-  // Show loading spinner while checking auth state
+  // Public routes that don't require auth
+  if (!user) {
+    return (
+      <Switch>
+        <Route path="/" component={LandingPage} />
+        <Route path="/about" component={AboutPage} />
+        <Route path="/login" component={AuthPage} />
+        <Route path="/register" component={AuthPage} />
+        <Route component={NotFound} />
+      </Switch>
+    );
+  }
+
+  // Show loading spinner while checking auth state for protected routes
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -24,19 +38,7 @@ function Router() {
     );
   }
 
-  // Show landing page for non-authenticated users
-  if (!user) {
-    return (
-      <Switch>
-        <Route path="/" component={LandingPage} />
-        <Route path="/login" component={AuthPage} />
-        <Route path="/register" component={AuthPage} />
-        <Route component={NotFound} />
-      </Switch>
-    );
-  }
-
-  // Show main app if authenticated
+  // Protected routes for authenticated users
   return (
     <>
       <Navbar />
